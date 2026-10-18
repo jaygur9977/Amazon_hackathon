@@ -1,0 +1,118 @@
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --text: #1c2024;
+  --muted: #5f6b76;
+  --rail: #d5dae0;
+  --chip: #eef2f7;
+  --accent: #2563eb;
+  --danger: #c2410c;
+  --danger-bg: #fff4ed;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.page-header, .timeline {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-inline: 16px;
+}
+
+.page-header { padding-block: 32px 8px; }
+.page-header h1 { margin: 0; font-size: 1.6rem; }
+.summary { margin: 4px 0 0; color: var(--muted); }
+
+.status { color: var(--muted); }
+.status-error { color: var(--danger); }
+
+.day-heading {
+  margin: 24px 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.events {
+  list-style: none;
+  margin: 0 0 0 6px;
+  padding: 0 0 48px 20px;
+  border-left: 2px solid var(--rail);
+}
+
+.event {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+/* Timeline marker on the rail */
+.event::before {
+  content: "";
+  position: absolute;
+  left: -28px;
+  top: 16px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--bg);
+}
+
+.event.flagged::before { background: var(--danger); }
+
+.event-body {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 6px rgb(0 0 0 / 0.04);
+}
+
+.event.flagged .event-body { box-shadow: inset 3px 0 0 var(--danger), 0 1px 2px rgb(0 0 0 / 0.06); }
+
+.event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.event-time { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--chip);
+  color: var(--muted);
+}
+
+.tag-risk { background: var(--danger-bg); color: var(--danger); }
+
+.event-description { margin: 6px 0 12px; }
+
+.clip { margin: 0; }
+
+.clip video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  border-radius: 6px;
+  background: #000;
+}
+
+.clip-name { margin-top: 4px; font-size: 0.75rem; color: var(--muted); }
+
+.clip-missing {
+  margin: 0;
+  padding: 24px;
+  border-radius: 6px;
+  text-align: center;
+  background: var(--chip);
+  color: var(--muted);
+}
