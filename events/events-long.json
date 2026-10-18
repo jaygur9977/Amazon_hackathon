@@ -1,0 +1,332 @@
+[
+ {
+  "clip_id": "L-01",
+  "file_name": "ucf-burglary005-porch.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:00:00",
+  "event": "person_lingering",
+  "objects": [
+   "person",
+   "door"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A person spends several minutes on the front porch repeatedly trying the door, walks off and comes back with a second person, and both linger at the door before leaving.",
+  "duration_sec": 258.1
+ },
+ {
+  "clip_id": "L-02",
+  "file_name": "ucf-stealing004-gate-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:04:18",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "motorcycle",
+   "gate"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "Several people come and go at the front gate, and near the end two men wheel a motorcycle out through the gate and take it away down the street.",
+  "duration_sec": 221.8
+ },
+ {
+  "clip_id": "L-03",
+  "file_name": "ucf-stealing013-night-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:07:59",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "motorcycle",
+   "gate"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "The night courtyard sits still for over three minutes before a person slips in, crouches by the covered motorcycle, and wheels it out through the gate.",
+  "duration_sec": 308.4
+ },
+ {
+  "clip_id": "L-04",
+  "file_name": "ucf-burglary022-door-closeup.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:13:08",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "door",
+   "tool"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A hooded person pries at the back door with a tool until it gives way, slips inside, and comes back out carrying a light-colored object.",
+  "duration_sec": 94.7
+ },
+ {
+  "clip_id": "L-05",
+  "file_name": "ucf-burglary040-home-security.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:14:43",
+  "event": "unusual_activity",
+  "objects": [
+   "person"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A man walks up the brick driveway, gets into the house, and spends about two minutes moving through the living room and kitchen, picking up items from the shelves before leaving.",
+  "duration_sec": 190.1
+ },
+ {
+  "clip_id": "L-06",
+  "file_name": "ucf-burglary083-day-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:17:53",
+  "event": "unusual_activity",
+  "objects": [
+   "car"
+  ],
+  "risk": "low",
+  "unusual": false,
+  "description": "A quiet daytime driveway with a parked silver car, passing street traffic, and one distant pedestrian; no one approaches the house.",
+  "duration_sec": 196.0
+ },
+ {
+  "clip_id": "L-07",
+  "file_name": "ucf-normal656-residential-street.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:21:09",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car",
+   "dog"
+  ],
+  "risk": "low",
+  "unusual": false,
+  "description": "An elevated daytime view of a residential street where pedestrians stroll past parked cars and someone walks a dog; nothing approaches the homes.",
+  "duration_sec": 60.5
+ },
+ {
+  "clip_id": "L-08",
+  "file_name": "ucf-stealing037-night-yard.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:22:09",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "motorcycle"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "Two people slip into the yard at night, pull the cover off a parked motorcycle, work on it for over a minute, and wheel it away, leaving the cover behind.",
+  "duration_sec": 158.3
+ },
+ {
+  "clip_id": "L-09",
+  "file_name": "ucf-stealing050-night-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:24:47",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "bicycle",
+   "car"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A person rides a bicycle into the gated driveway at night, opens the parked SUV's rear door, and rummages inside it twice before riding off.",
+  "duration_sec": 111.6
+ },
+ {
+  "clip_id": "L-10",
+  "file_name": "ucf-stealing098-night-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:26:39",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A person walks into the driveway at night, moves between the parked car and pickup for about a minute, and the camera view whites out at the end as if covered.",
+  "duration_sec": 115.6
+ },
+ {
+  "clip_id": "L-11",
+  "file_name": "ucf-stealing103-night-gate.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:28:35",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "motorcycle",
+   "gate"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "At night a group gathers at the front gate around a motorcycle, works on it for several minutes, and wheels it out onto the street and away.",
+  "duration_sec": 202.6
+ },
+ {
+  "clip_id": "L-12",
+  "file_name": "ucf-burglary042-home-interior-backup.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:31:57",
+  "event": "unusual_activity",
+  "objects": [
+   "person"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "Two people move through a home's kitchen and living room, looking around the counters and windows, and the blinds are drawn partway through the clip.",
+  "duration_sec": 141.1
+ },
+ {
+  "clip_id": "L-13",
+  "file_name": "ucf-burglary075-residential-street-bw.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:34:18",
+  "event": "unusual_activity",
+  "objects": [
+   "car"
+  ],
+  "risk": "low",
+  "unusual": false,
+  "description": "A black-and-white view of a terraced street lined with parked cars stays quiet for the whole clip, with no one approaching the houses.",
+  "duration_sec": 520.0
+ },
+ {
+  "clip_id": "L-14",
+  "file_name": "ucf-burglary095-nest-home-interior.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T06:42:58",
+  "event": "unusual_activity",
+  "objects": [
+   "person"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A Nest camera watches an empty kitchen for most of the clip, but midway through a person in a red shirt walks in from the back rooms and bends over the furniture as if searching it.",
+  "duration_sec": 1355.2
+ },
+ {
+  "clip_id": "L-15",
+  "file_name": "ucf-stealing035-rainy-night-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:05:34",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "On a rainy night two hooded figures crowd around the driver-side door of the SUV parked in the driveway, and a car is driven away from the curb moments later.",
+  "duration_sec": 371.8
+ },
+ {
+  "clip_id": "L-16",
+  "file_name": "ucf-stealing046-night-residential-street.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:11:45",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "Before dawn the door of the white hatchback parked on the street is opened, its headlights come on, and the car is driven away, leaving the street quiet again.",
+  "duration_sec": 343.6
+ },
+ {
+  "clip_id": "L-17",
+  "file_name": "ucf-stealing053-night-doorbell-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:17:29",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A person appears at the rear of the white hatchback in the driveway late in the clip, then walks away across the street carrying a light-colored item.",
+  "duration_sec": 435.2
+ },
+ {
+  "clip_id": "L-18",
+  "file_name": "ucf-stealing063-night-driveway-closeup.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:24:44",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "truck"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A person opens the driver door of the pickup in the driveway at about 1 AM and leans into the cab again and again for roughly two minutes before leaving.",
+  "duration_sec": 386.4
+ },
+ {
+  "clip_id": "L-19",
+  "file_name": "ucf-stealing065-residential-street-backup.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:31:11",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A hooded person walks along the terraced street at night, stops at the black car parked at the curb, and leans at its driver-side window for about half a minute before walking off.",
+  "duration_sec": 182.9
+ },
+ {
+  "clip_id": "L-20",
+  "file_name": "ucf-stealing086-residential-street.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:34:13",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car"
+  ],
+  "risk": "low",
+  "unusual": false,
+  "description": "An elevated daytime view over a small parking area where pedestrians stroll past parked cars and a motorcyclist stops briefly; nothing is taken from any vehicle in view.",
+  "duration_sec": 605.0
+ },
+ {
+  "clip_id": "L-21",
+  "file_name": "ucf-stealing088-night-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:44:18",
+  "event": "unusual_activity",
+  "objects": [
+   "car"
+  ],
+  "risk": "low",
+  "unusual": false,
+  "description": "A night view over parked cars stays still for seven minutes, with only a passing car's headlights crossing the top of the frame near the end.",
+  "duration_sec": 428.5
+ },
+ {
+  "clip_id": "L-22",
+  "file_name": "ucf-stealing092-night-driveway.mp4",
+  "bucket": "long-footage",
+  "timestamp": "2026-10-18T07:51:27",
+  "event": "unusual_activity",
+  "objects": [
+   "person",
+   "car"
+  ],
+  "risk": "high",
+  "unusual": true,
+  "description": "A hooded person enters the walled brick driveway at night and spends minutes leaning into the parked car, leaves, and later returns to work at the car again.",
+  "duration_sec": 451.4
+ }
+]
