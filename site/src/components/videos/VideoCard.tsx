@@ -9,7 +9,8 @@ import {
   HardDrive, 
   Eye, 
   Tag, 
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { VideoClip } from '../../types';
 
@@ -18,13 +19,15 @@ interface VideoCardProps {
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
   onAnalyzeSingle: (id: string) => void;
+  onDeleteVideo?: (id: string) => void;
 }
 
 export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   isSelected,
   onToggleSelect,
-  onAnalyzeSingle
+  onAnalyzeSingle,
+  onDeleteVideo
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -174,17 +177,35 @@ export const VideoCard: React.FC<VideoCardProps> = ({
                 {formatFileSize(video.file_size_bytes)}
               </span>
 
-              <button
-                type="button"
-                className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition-all"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsFlipped(true);
-                }}
-              >
-                <span>Details</span>
-                <RotateCw className="w-3 h-3 text-emerald-600" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                {onDeleteVideo && (video.bucket === 'uploaded' || video.bucket === 'uploads') && (
+                  <button
+                    type="button"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete uploaded footage "${video.file_name}"?`)) {
+                        onDeleteVideo(video.id);
+                      }
+                    }}
+                    title="Delete uploaded video"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsFlipped(true);
+                  }}
+                >
+                  <span>Details</span>
+                  <RotateCw className="w-3 h-3 text-emerald-600" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -266,6 +287,21 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             >
               <Sparkles className="w-4 h-4 text-emerald-800 stroke-[2.5]" />
             </button>
+
+            {onDeleteVideo && (video.bucket === 'uploaded' || video.bucket === 'uploads') && (
+              <button
+                type="button"
+                className="flex items-center justify-center p-3 rounded-2xl bg-rose-50 text-rose-700 border-2 border-rose-200 hover:bg-rose-100 transition-colors shadow-subtle"
+                onClick={() => {
+                  if (window.confirm(`Delete uploaded footage "${video.file_name}"?`)) {
+                    onDeleteVideo(video.id);
+                  }
+                }}
+                title="Delete uploaded video"
+              >
+                <Trash2 className="w-4 h-4 text-rose-600 stroke-[2.5]" />
+              </button>
+            )}
           </div>
         </div>
       </motion.div>

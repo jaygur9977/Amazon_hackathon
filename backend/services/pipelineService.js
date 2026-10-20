@@ -84,14 +84,18 @@ export const pipelineService = {
     const entry = `[${new Date().toISOString()}] ${message}`;
     job.logs.push(entry);
     if (stage) job.stage = stage;
-    pipelineEvents.emit(`job:${job.id}:log`, { 
-      jobId: job.id, 
-      message: entry, 
-      status: job.status, 
-      stage: job.stage,
-      progress_percent: job.progress_percent 
-    });
-    storageService.upsertJob(job);
+    try {
+      pipelineEvents.emit(`job:${job.id}:log`, { 
+        jobId: job.id, 
+        message: entry, 
+        status: job.status, 
+        stage: job.stage,
+        progress_percent: job.progress_percent 
+      });
+      storageService.upsertJob(job);
+    } catch (logErr) {
+      console.warn(`Job log save warning:`, logErr.message);
+    }
   },
 
   async executeJob(job, videos) {
@@ -114,6 +118,10 @@ export const pipelineService = {
 
       try {
         const result = await this.analyzeSingleVideo(video, job);
+        
+        // Store analysis result persistently immediately
+        storageService.upsertAnalyzedEvent(result);
+
         results.push(result);
         job.results.push(result);
         job.completed_videos += 1;
@@ -123,9 +131,6 @@ export const pipelineService = {
           job,
           `Completed ${video.file_name}: Event="${result.event}" Risk="${result.risk}" Category="${result.category || result.event}"`
         );
-
-        // Store analysis result persistently (upsert)
-        storageService.upsertAnalyzedEvent(result);
       } catch (err) {
         this.log(job, `Error processing ${video.file_name}: ${err.message}`);
         const failedResult = {

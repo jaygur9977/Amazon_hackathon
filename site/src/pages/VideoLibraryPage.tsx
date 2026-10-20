@@ -159,10 +159,29 @@ export const VideoLibraryPage: React.FC = () => {
     clearSelection();
   };
 
+  const handleDeleteVideo = async (id: string) => {
+    try {
+      await api.deleteVideo(id);
+      fetchVideos();
+    } catch (err: any) {
+      alert(`Delete failed: ${err.message}`);
+    }
+  };
+
+  const handleClearProcessing = async () => {
+    try {
+      await api.clearProcessingJobs();
+      fetchVideos();
+    } catch (err: any) {
+      alert(`Failed to clear processing state: ${err.message}`);
+    }
+  };
+
   const totalClips = videos.length;
   const analyzedClips = videos.filter((v) => v.status === 'completed').length;
   const playableClips = videos.filter((v) => v.has_media_file).length;
   const benchmarkClips = videos.filter((v) => v.is_dataset_benchmark).length;
+  const hasProcessingClips = videos.some((v) => v.status === 'processing');
 
   return (
     <div className="space-y-6">
@@ -193,6 +212,18 @@ export const VideoLibraryPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {hasProcessingClips && (
+            <button
+              type="button"
+              onClick={handleClearProcessing}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition shadow-sm animate-pulse"
+              title="Clear interrupted / stuck processing queue"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset Stuck Processing</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsInputModalOpen(true)}
@@ -291,6 +322,7 @@ export const VideoLibraryPage: React.FC = () => {
               isSelected={selectedIds.has(video.id)}
               onToggleSelect={toggleSelect}
               onAnalyzeSingle={handleAnalyzeSingle}
+              onDeleteVideo={handleDeleteVideo}
             />
           ))}
         </div>

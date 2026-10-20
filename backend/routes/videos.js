@@ -241,4 +241,15 @@ router.get('/:id', (req, res) => {
   }
 });
 
+// DELETE /api/videos/:id - Delete uploaded video and its evidence
+router.delete('/:id', (req, res) => {
+  try {
+    const result = videoService.deleteVideo(req.params.id);
+    res.json(result);
+  } catch (err) {
+    const status = err.message.includes('not found') ? 404 : 400;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

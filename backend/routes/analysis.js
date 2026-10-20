@@ -26,6 +26,20 @@ router.post('/jobs', (req, res) => {
   }
 });
 
+// POST /api/analysis/jobs/clear-processing - Cancel / clear stuck processing jobs
+router.post('/jobs/clear-processing', (req, res) => {
+  try {
+    const jobs = storageService.clearStuckProcessingJobs();
+    res.json({
+      success: true,
+      message: 'All in-flight and processing jobs have been cleared successfully.',
+      count: jobs.length
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/analysis/jobs - List all jobs
 router.get('/jobs', (req, res) => {
   try {

@@ -38,13 +38,31 @@ function safeReadJSON(filePath, fallback = []) {
 }
 
 function safeWriteJSON(filePath, data) {
-  const tmpPath = `${filePath}.tmp.${Date.now()}`;
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tmpPath, filePath);
+  const content = JSON.stringify(data, null, 2);
+  const tmpPath = `${filePath}.tmp.${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  try {
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    try {
+      fs.renameSync(tmpPath, filePath);
+    } catch (renameErr) {
+      // Windows NTFS lock fallback: copyFileSync truncates & overwrites destination cleanly
+      fs.copyFileSync(tmpPath, filePath);
+      try { fs.unlinkSync(tmpPath); } catch (_) {}
+    }
+  } catch (err) {
+    // Direct write fallback
+    try {
+      fs.writeFileSync(filePath, content, 'utf-8');
+    } catch (writeErr) {
+      console.error(`Error writing ${filePath}:`, writeErr.message);
+    }
+    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (_) {}
+  }
 }
 
 function formatSecondsToTime(sec) {
@@ -303,6 +321,62 @@ export const storageService = {
     return jobs.find((j) => j.id === jobId) || null;
   },
 
+  deleteAnalyzedEvent(idOrStem) {
+    const events = this.getAnalyzedEvents();
+    const stem = path.parse(idOrStem).name;
+    const filtered = events.filter(e => 
+      e.clip_id !== idOrStem && 
+      e.file_name !== idOrStem && 
+      e.stem !== idOrStem &&
+      e.clip_id !== stem &&
+      e.stem !== stem
+    );
+    this.saveAnalyzedEvents(filtered);
+    return true;
+  },
+
+  clearStuckProcessingJobs() {
+    const jobs = this.getJobs();
+    let changed = false;
+    for (const job of jobs) {
+      if (job.status === 'processing' || job.status === 'queued') {
+        job.status = 'completed';
+        job.stage = 'finished';
+        job.progress_percent = 100;
+        job.current_video = null;
+        job.logs = job.logs || [];
+        job.logs.push(`[${new Date().toISOString()}] Job state reset / cleared by user.`);
+        job.updated_at = new Date().toISOString();
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.saveJobs(jobs);
+    }
+    return jobs;
+  },
+
+  removeVideoFromJobs(videoId) {
+    const jobs = this.getJobs();
+    const stem = path.parse(videoId).name;
+    let changed = false;
+    for (const job of jobs) {
+      if (job.video_ids) {
+        const origLen = job.video_ids.length;
+        job.video_ids = job.video_ids.filter(id => id !== videoId && id !== stem);
+        if (job.video_ids.length !== origLen) changed = true;
+      }
+      if (job.results) {
+        const origLen = job.results.length;
+        job.results = job.results.filter(r => r.clip_id !== videoId && r.file_name !== videoId && r.stem !== stem);
+        if (job.results.length !== origLen) changed = true;
+      }
+    }
+    if (changed) {
+      this.saveJobs(jobs);
+    }
+  },
+
   upsertJob(job) {
     const jobs = this.getJobs();
     const index = jobs.findIndex((j) => j.id === job.id);
@@ -319,3 +393,19 @@ export const storageService = {
     return job;
   }
 };
+
+// Startup cleanup: remove leftover temporary files and resolve orphaned processing jobs
+try {
+  if (fs.existsSync(EVENTS_DIR)) {
+    const eventFiles = fs.readdirSync(EVENTS_DIR);
+    for (const file of eventFiles) {
+      if (file.includes('.tmp.')) {
+        try { fs.unlinkSync(path.join(EVENTS_DIR, file)); } catch (_) {}
+      }
+    }
+  }
+  // Sanitize any orphaned processing jobs from previous crashes
+  storageService.clearStuckProcessingJobs();
+} catch (startupErr) {
+  console.warn('Storage startup sanitization warning:', startupErr.message);
+}

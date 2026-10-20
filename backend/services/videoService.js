@@ -233,5 +233,52 @@ export const videoService = {
       throw new Error(`Video file not found: ${relativePath}`);
     }
     return fullPath;
+  },
+
+  deleteVideo(id) {
+    const video = this.getVideoById(id);
+    if (!video) {
+      throw new Error(`Video with id "${id}" not found.`);
+    }
+
+    // Protect core benchmark dataset clips from accidental deletion
+    if (video.is_dataset_benchmark || (video.bucket !== 'uploaded' && video.bucket !== 'uploads')) {
+      throw new Error('Only user-uploaded videos can be deleted. Benchmark dataset clips are protected.');
+    }
+
+    // 1. Delete physical video file from disk
+    if (video.relative_path) {
+      try {
+        const fullPath = this.resolveVideoPath(video.relative_path);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch (err) {
+        console.warn(`Could not unlink video file: ${err.message}`);
+      }
+    }
+
+    // 2. Delete extracted evidence directory if exists
+    const stem = video.stem || video.id;
+    const evidenceDir = path.join(EVIDENCE_ROOT, stem);
+    if (fs.existsSync(evidenceDir)) {
+      try {
+        fs.rmSync(evidenceDir, { recursive: true, force: true });
+      } catch (err) {
+        console.warn(`Could not remove evidence directory: ${err.message}`);
+      }
+    }
+
+    // 3. Remove from analyzed-events
+    storageService.deleteAnalyzedEvent(video.id);
+    storageService.deleteAnalyzedEvent(stem);
+
+    // 4. Remove from analysis-jobs
+    storageService.removeVideoFromJobs(video.id);
+
+    return {
+      success: true,
+      message: `Video "${video.file_name}" and associated evidence deleted successfully.`
+    };
   }
 };

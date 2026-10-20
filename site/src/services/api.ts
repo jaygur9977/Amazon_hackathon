@@ -149,6 +149,28 @@ export const api = {
     return res.json();
   },
 
+  async deleteVideo(id: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Failed to delete video');
+    }
+    return res.json();
+  },
+
+  async clearProcessingJobs(): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/analysis/jobs/clear-processing`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Failed to clear jobs');
+    }
+    return res.json();
+  },
+
   async getSources(): Promise<any[]> {
     const res = await fetch(`${API_BASE}/assistant/sources`);
     if (!res.ok) throw new Error('Failed to fetch assistant sources');
