@@ -1,0 +1,146 @@
+# ============================================================
+#  AegisVision — AI Video Intelligence Platform
+#  .gitignore
+# ============================================================
+
+# ─────────────────────────────────────────
+# Node.js / npm
+# ─────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.npm/
+.yarn/
+
+# ─────────────────────────────────────────
+# Frontend build output (site/)
+# ─────────────────────────────────────────
+site/dist/
+site/.vite/
+site/coverage/
+
+# ─────────────────────────────────────────
+# Environment / Secrets  ← NEVER commit these
+# ─────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+
+# Keep the example template so teammates know what vars to set
+!.env.example
+!backend/.env.example
+
+# ─────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+env/
+ENV/
+.eggs/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+*.ipynb
+
+# ─────────────────────────────────────────
+# AI-generated evidence frames
+# (large JPEG snapshots extracted at runtime)
+# ─────────────────────────────────────────
+evidence/
+
+# ─────────────────────────────────────────
+# Video clips  (large binary assets)
+# Track with Git LFS or store externally
+# ─────────────────────────────────────────
+clips/
+
+# ─────────────────────────────────────────
+# Thumbnails  (auto-generated)
+# ─────────────────────────────────────────
+thumbnails/
+
+# ─────────────────────────────────────────
+# Runtime analysis output
+# (generated at runtime; ground truth is kept)
+# ─────────────────────────────────────────
+events/analyzed-events.json
+events/analysis-jobs.json
+
+# Keep the ground-truth dataset
+!events/events.json
+
+# ─────────────────────────────────────────
+# OS / Editor artefacts
+# ─────────────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains / PyCharm / WebStorm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim / Emacs
+*.swp
+*.swo
+*.swn
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+Session.vim
+.netrwhist
+
+# ─────────────────────────────────────────
+# Logs
+# ─────────────────────────────────────────
+logs/
+*.log
+*.log.*
+
+# ─────────────────────────────────────────
+# Miscellaneous temp / scratch files
+# ─────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.patch

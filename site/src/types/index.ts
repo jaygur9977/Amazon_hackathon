@@ -1,0 +1,108 @@
+export interface VideoClip {
+  id: string;
+  file_name: string;
+  stem: string;
+  bucket: string;
+  relative_path: string;
+  file_size_bytes: number;
+  duration_sec: number;
+  status: 'not_analyzed' | 'processing' | 'completed' | 'failed';
+  thumbnail_url: string | null;
+  video_url: string;
+  has_analysis: boolean;
+  analysis: AnalysisResult | null;
+  ground_truth: GroundTruthRecord | null;
+  evidence_frames: string[];
+}
+
+export interface AnalysisResult {
+  clip_id: string;
+  file_name: string;
+  bucket: string;
+  timestamp: string;
+  event: string;
+  objects: string[];
+  risk: 'low' | 'high';
+  unusual: boolean;
+  description: string;
+  source?: string;
+  evidence_frames?: string[];
+  status?: string;
+  pipeline_version?: string;
+  analyzed_at?: string;
+  error?: string;
+}
+
+export interface GroundTruthRecord {
+  clip_id: string;
+  file_name: string;
+  bucket: string;
+  timestamp: string;
+  event: string;
+  objects: string[];
+  risk: 'low' | 'high';
+  unusual: boolean;
+  description: string;
+  duration_sec?: number;
+}
+
+export interface AnalysisJob {
+  id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  video_ids: string[];
+  total_videos: number;
+  completed_videos: number;
+  current_video: string | null;
+  stage: string;
+  progress_percent: number;
+  logs: string[];
+  results: AnalysisResult[];
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DashboardStats {
+  total_videos: number;
+  analyzed_videos: number;
+  not_analyzed_videos: number;
+  failed_videos: number;
+  high_risk_count: number;
+  unusual_activity_count: number;
+  jobs: {
+    pending: number;
+    processing: number;
+    failed: number;
+    total: number;
+  };
+  event_distribution: Record<string, number>;
+  risk_distribution: {
+    low: number;
+    high: number;
+  };
+  recent_activity: AnalysisResult[];
+}
+
+export interface RAGCitation {
+  clip_id: string;
+  file_name: string;
+  event: string;
+  risk: string;
+  unusual: boolean;
+  description: string;
+  type: string;
+  evidence_frames: string[];
+  thumbnail_url: string | null;
+  video_url: string | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+  citations?: RAGCitation[];
+  model?: string;
+  grounded?: boolean;
+  notice?: string;
+}
