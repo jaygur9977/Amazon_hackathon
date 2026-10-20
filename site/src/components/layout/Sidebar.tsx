@@ -6,15 +6,18 @@ import {
   LayoutDashboard, 
   MessageSquareCode, 
   Radio,
-  Sparkles
+  Tv,
+  Calendar
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const navItems = [
     { to: '/', label: 'Overview', icon: ShieldCheck, exact: true },
+    { to: '/feed', label: 'Doorbell Feed', icon: Tv, badge: 'Live SIM' },
     { to: '/videos', label: 'Video Library', icon: Film },
+    { to: '/summary', label: 'Daily Summary', icon: Calendar },
     { to: '/dashboard', label: 'Event Analytics', icon: LayoutDashboard },
-    { to: '/assistant', label: 'AI Assistant', icon: MessageSquareCode, badge: 'Live RAG' },
+    { to: '/assistant', label: 'AI Assistant', icon: MessageSquareCode, badge: 'RAG' },
   ];
 
   return (
@@ -36,7 +39,7 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* Navigation items */}
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-1.5">
           <div className="px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-secondary">
             Navigation
           </div>
@@ -46,7 +49,7 @@ export const Sidebar: React.FC = () => {
               to={item.to}
               end={item.exact}
               className={({ isActive }) =>
-                `flex items-center justify-between px-4 py-3 rounded-2xl text-base font-semibold transition-all duration-200 ${
+                `flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 ${
                   isActive
                     ? 'bg-emerald-50 text-emerald-900 border-2 border-emerald-400 font-bold shadow-subtle scale-[1.02]'
                     : 'text-secondary hover:text-primary hover:bg-slate-100/80'
@@ -57,10 +60,10 @@ export const Sidebar: React.FC = () => {
                 <>
                   <div className="flex items-center gap-3.5">
                     <item.icon className={`w-5 h-5 ${isActive ? 'text-emerald-700 stroke-[2.5]' : 'text-slate-500'}`} />
-                    <span className="text-base">{item.label}</span>
+                    <span>{item.label}</span>
                   </div>
                   {item.badge && (
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
                       {item.badge}
                     </span>
                   )}

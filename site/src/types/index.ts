@@ -1,18 +1,56 @@
+export interface TimelineSegment {
+  start_sec: number;
+  end_sec: number;
+  startTime: string;
+  endTime: string;
+  action: string;
+  entities?: string[];
+  observations?: string;
+  confidence?: number;
+  coverage_gap?: boolean;
+}
+
+export interface DetectionFrame {
+  frame: string;
+  t_seconds: number;
+  person_boxes: [number, number, number, number][];
+  motion_boxes: [number, number, number, number][];
+  motion_score: number;
+}
+
+export interface DetectionData {
+  clip_id: string;
+  file_name: string;
+  frames: DetectionFrame[];
+  peak_frame?: string;
+  peak_time_seconds?: number;
+  stats?: {
+    frames: number;
+    frames_with_person: number;
+    max_motion_score: number;
+  };
+}
+
 export interface VideoClip {
   id: string;
+  clip_id?: string;
   file_name: string;
   stem: string;
   bucket: string;
-  relative_path: string;
-  file_size_bytes: number;
+  relative_path: string | null;
+  file_size_bytes: number | null;
   duration_sec: number;
   status: 'not_analyzed' | 'processing' | 'completed' | 'failed';
+  has_media_file?: boolean;
   thumbnail_url: string | null;
-  video_url: string;
+  video_url: string | null;
   has_analysis: boolean;
   analysis: AnalysisResult | null;
   ground_truth: GroundTruthRecord | null;
   evidence_frames: string[];
+  has_detections?: boolean;
+  peak_time_seconds?: number | null;
+  is_dataset_benchmark?: boolean;
 }
 
 export interface AnalysisResult {
@@ -21,12 +59,29 @@ export interface AnalysisResult {
   bucket: string;
   timestamp: string;
   event: string;
+  category?: string;
+  subcategory?: string;
+  eventSummary?: string;
+  detailedDescription?: string;
+  startTime?: string;
+  endTime?: string;
+  duration_sec?: number;
+  timeline?: TimelineSegment[];
+  entities?: string[];
+  actions?: string[];
   objects: string[];
   risk: 'low' | 'high';
+  riskEvidence?: string;
   unusual: boolean;
   description: string;
+  confidence?: number;
+  uncertainties?: string[];
+  searchableText?: string;
   source?: string;
   evidence_frames?: string[];
+  peak_frame?: string;
+  peak_time_seconds?: number | null;
+  detections?: DetectionData | null;
   status?: string;
   pipeline_version?: string;
   analyzed_at?: string;
@@ -83,14 +138,43 @@ export interface DashboardStats {
   recent_activity: AnalysisResult[];
 }
 
+export interface DailySummaryEvent {
+  clip_id: string;
+  file_name: string;
+  event: string;
+  category: string;
+  risk: 'low' | 'high';
+  riskEvidence: string;
+  unusual: boolean;
+  time_formatted: string;
+  timestamp: string;
+  duration_sec: number;
+  description: string;
+  evidence_frames: string[];
+  timeline: TimelineSegment[];
+}
+
+export interface DailySummaryItem {
+  date: string;
+  total_events: number;
+  high_risk_count: number;
+  delivery_count: number;
+  visitor_count: number;
+  unusual_count: number;
+  plain_english_summary: string;
+  events: DailySummaryEvent[];
+}
+
 export interface RAGCitation {
   clip_id: string;
   file_name: string;
   event: string;
+  category?: string;
   risk: string;
   unusual: boolean;
   description: string;
-  type: string;
+  timeline?: TimelineSegment[];
+  type?: string;
   evidence_frames: string[];
   thumbnail_url: string | null;
   video_url: string | null;
@@ -105,4 +189,12 @@ export interface ChatMessage {
   model?: string;
   grounded?: boolean;
   notice?: string;
+}
+
+export interface CloudConnector {
+  provider: string;
+  id: string;
+  status: 'connected' | 'unconfigured';
+  description: string;
+  requires: string[];
 }

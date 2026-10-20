@@ -1,4 +1,14 @@
-import { VideoClip, AnalysisJob, AnalysisResult, DashboardStats, ChatMessage, RAGCitation } from '../types';
+import { 
+  VideoClip, 
+  AnalysisJob, 
+  AnalysisResult, 
+  DashboardStats, 
+  ChatMessage, 
+  RAGCitation,
+  DetectionData,
+  DailySummaryItem,
+  CloudConnector
+} from '../types';
 
 const API_BASE = '/api';
 
@@ -14,6 +24,38 @@ export const api = {
     if (!res.ok) throw new Error(`Failed to fetch video: ${res.statusText}`);
     const data = await res.json();
     return data.video;
+  },
+
+  async getVideoDetections(id: string): Promise<DetectionData> {
+    const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}/detections`);
+    if (!res.ok) throw new Error(`Failed to fetch detections: ${res.statusText}`);
+    const data = await res.json();
+    return data.detection;
+  },
+
+  async searchVideos(query: string, limit = 20): Promise<{ count: number; results: any[] }> {
+    const res = await fetch(`${API_BASE}/videos/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+    if (!res.ok) throw new Error(`Search request failed: ${res.statusText}`);
+    return res.json();
+  },
+
+  async getCloudConnectors(): Promise<{ connectors: CloudConnector[] }> {
+    const res = await fetch(`${API_BASE}/videos/cloud-connectors`);
+    if (!res.ok) throw new Error(`Failed to fetch cloud connectors: ${res.statusText}`);
+    return res.json();
+  },
+
+  async ingestRemoteUrl(url: string, title?: string): Promise<{ success: boolean; message: string; video: VideoClip }> {
+    const res = await fetch(`${API_BASE}/videos/ingest-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, title })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to ingest URL');
+    }
+    return data;
   },
 
   async startAnalysis(videoIds: string[]): Promise<AnalysisJob> {
@@ -76,6 +118,16 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch dashboard stats');
     const data = await res.json();
     return data.stats;
+  },
+
+  async getDailySummaries(date?: string, risk?: string): Promise<{ available_dates: string[]; summaries: DailySummaryItem[] }> {
+    const params = new URLSearchParams();
+    if (date && date !== 'all') params.append('date', date);
+    if (risk && risk !== 'all') params.append('risk', risk);
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${API_BASE}/dashboard/daily-summary${queryStr}`);
+    if (!res.ok) throw new Error('Failed to fetch daily summaries');
+    return res.json();
   },
 
   async askAssistant(message: string, history: ChatMessage[]): Promise<{

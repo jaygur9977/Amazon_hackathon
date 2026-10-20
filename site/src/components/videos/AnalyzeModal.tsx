@@ -16,7 +16,7 @@ interface AnalyzeModalProps {
   jobId: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onCompleted: () => void;
+  onCompleted?: () => void;
 }
 
 export const AnalyzeModal: React.FC<AnalyzeModalProps> = ({

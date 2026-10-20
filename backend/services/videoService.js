@@ -34,50 +34,77 @@ export const videoService = {
 
   getAllVideos() {
     const mp4Paths = findMp4Files(CLIPS_ROOT);
-    const analyzedEvents = storageService.getAnalyzedEvents();
-    const groundTruth = storageService.getGroundTruthEvents();
-    const jobs = storageService.getJobs();
+    const diskFileMap = new Map();
+    for (const p of mp4Paths) {
+      const fn = path.basename(p);
+      const stem = path.parse(fn).name;
+      diskFileMap.set(fn, p);
+      diskFileMap.set(stem, p);
+    }
 
-    // Map analyzed events by file_name and clip_id
+    const authoritativeDataset = storageService.getAuthoritativeDataset();
+    const analyzedEvents = storageService.getAnalyzedEvents();
+    const jobs = storageService.getJobs();
+    const detectionsAll = storageService.getDetectionsAll();
+
+    // Index analyzed events
     const analyzedMap = new Map();
     for (const ev of analyzedEvents) {
       if (ev.file_name) analyzedMap.set(ev.file_name, ev);
       if (ev.clip_id) analyzedMap.set(ev.clip_id, ev);
+      if (ev.stem) analyzedMap.set(ev.stem, ev);
     }
 
-    // Map ground truth by file_name and clip_id
-    const groundTruthMap = new Map();
-    for (const gt of groundTruth) {
-      if (gt.file_name) groundTruthMap.set(gt.file_name, gt);
-      if (gt.clip_id) groundTruthMap.set(gt.clip_id, gt);
-    }
-
-    // Check currently processing video filenames in active jobs
+    // Index active processing jobs
     const activeVideoFiles = new Set();
     for (const job of jobs) {
       if (job.status === 'processing' || job.status === 'queued') {
-        (job.video_ids || []).forEach((id) => activeVideoFiles.add(id));
+        (job.video_ids || []).forEach((id) => {
+          activeVideoFiles.add(id);
+          activeVideoFiles.add(path.parse(id).name);
+        });
       }
     }
 
+    // Index detections
+    const detectionMap = new Map();
+    for (const det of detectionsAll) {
+      if (det.clip_id) detectionMap.set(det.clip_id, det);
+      if (det.file_name) detectionMap.set(det.file_name, det);
+      const stem = path.parse(det.file_name || '').name;
+      if (stem) detectionMap.set(stem, det);
+    }
+
     const videos = [];
+    const processedKeys = new Set();
 
-    for (const fullPath of mp4Paths) {
-      const fileName = path.basename(fullPath);
+    // 1. Process all authoritative dataset clips (all 41 clips)
+    for (const seed of authoritativeDataset) {
+      const fileName = seed.file_name;
       const stem = path.parse(fileName).name;
-      const relPath = path.relative(CLIPS_ROOT, fullPath).replace(/\\/g, '/');
-      const stat = fs.statSync(fullPath);
+      const clipId = seed.clip_id || stem;
+      processedKeys.add(fileName);
+      processedKeys.add(stem);
+      processedKeys.add(clipId);
 
-      // Bucket is the immediate parent directory or parent's parent
-      const pathParts = relPath.split('/');
-      const bucket = pathParts.length > 1 ? pathParts[0] : 'general';
+      const localPath = diskFileMap.get(fileName) || diskFileMap.get(stem);
+      let relativePath = null;
+      let fileSize = null;
+      let hasMediaFile = false;
+
+      if (localPath && fs.existsSync(localPath)) {
+        relativePath = path.relative(CLIPS_ROOT, localPath).replace(/\\/g, '/');
+        const stat = fs.statSync(localPath);
+        fileSize = stat.size;
+        hasMediaFile = true;
+      }
 
       // Check thumbnail
       let thumbnailUrl = null;
       const thumbCandidates = [
         path.join(THUMBNAILS_ROOT, `${stem}.jpg`),
         path.join(THUMBNAILS_ROOT, `${fileName}.jpg`),
-        path.join(THUMBNAILS_ROOT, `${bucket}.jpg`)
+        path.join(THUMBNAILS_ROOT, `${seed.bucket}.jpg`)
       ];
       for (const tc of thumbCandidates) {
         if (fs.existsSync(tc)) {
@@ -86,7 +113,7 @@ export const videoService = {
         }
       }
 
-      // Check evidence frames if available
+      // Evidence frames
       let evidenceFrames = [];
       const evidenceDir = path.join(EVIDENCE_ROOT, stem);
       if (fs.existsSync(evidenceDir)) {
@@ -97,35 +124,84 @@ export const videoService = {
         }
       }
 
-      // Check status
-      const analysis = analyzedMap.get(fileName) || analyzedMap.get(stem) || null;
-      const gt = groundTruthMap.get(fileName) || groundTruthMap.get(stem) || null;
+      const det = detectionMap.get(clipId) || detectionMap.get(fileName) || detectionMap.get(stem) || null;
+      if (!thumbnailUrl && det?.peak_frame) {
+        thumbnailUrl = `/media/evidence/${stem}/${det.peak_frame}`;
+      }
+
+      const analysis = analyzedMap.get(clipId) || analyzedMap.get(fileName) || analyzedMap.get(stem) || null;
 
       let status = 'not_analyzed';
-      if (activeVideoFiles.has(fileName) || activeVideoFiles.has(stem)) {
+      if (activeVideoFiles.has(clipId) || activeVideoFiles.has(fileName) || activeVideoFiles.has(stem)) {
         status = 'processing';
       } else if (analysis) {
         status = analysis.status === 'failed' ? 'failed' : 'completed';
       }
 
-      // Duration estimate from ground truth if available, or file size heuristic
-      const duration = gt?.duration_sec || 15.0;
+      const duration = seed.duration_sec || (det?.frames?.length ? det.frames.length * 2 : 15.0);
+
+      videos.push({
+        id: clipId,
+        clip_id: clipId,
+        file_name: fileName,
+        stem,
+        bucket: seed.bucket,
+        relative_path: relativePath,
+        file_size_bytes: fileSize,
+        duration_sec: duration,
+        status,
+        has_media_file: hasMediaFile,
+        thumbnail_url: thumbnailUrl,
+        video_url: hasMediaFile ? `/media/clips/${relativePath}` : null,
+        has_analysis: !!analysis,
+        analysis: analysis || null,
+        ground_truth: seed,
+        evidence_frames: evidenceFrames,
+        has_detections: !!det,
+        peak_time_seconds: det?.peak_time_seconds ?? null,
+        is_dataset_benchmark: !hasMediaFile
+      });
+    }
+
+    // 2. Add any additional uploaded/local files that aren't in events-all.json
+    for (const [fn, fullPath] of diskFileMap.entries()) {
+      if (!fn.endsWith('.mp4')) continue;
+      const stem = path.parse(fn).name;
+      if (processedKeys.has(fn) || processedKeys.has(stem)) continue;
+
+      const relPath = path.relative(CLIPS_ROOT, fullPath).replace(/\\/g, '/');
+      const stat = fs.statSync(fullPath);
+      const pathParts = relPath.split('/');
+      const bucket = pathParts.length > 1 ? pathParts[0] : 'uploads';
+
+      const analysis = analyzedMap.get(fn) || analyzedMap.get(stem) || null;
+      let status = 'not_analyzed';
+      if (activeVideoFiles.has(fn) || activeVideoFiles.has(stem)) {
+        status = 'processing';
+      } else if (analysis) {
+        status = analysis.status === 'failed' ? 'failed' : 'completed';
+      }
 
       videos.push({
         id: stem,
-        file_name: fileName,
+        clip_id: stem,
+        file_name: fn,
         stem,
         bucket,
         relative_path: relPath,
         file_size_bytes: stat.size,
-        duration_sec: duration,
+        duration_sec: 15.0,
         status,
-        thumbnail_url: thumbnailUrl,
+        has_media_file: true,
+        thumbnail_url: null,
         video_url: `/media/clips/${relPath}`,
         has_analysis: !!analysis,
         analysis: analysis || null,
-        ground_truth: gt || null,
-        evidence_frames: evidenceFrames
+        ground_truth: null,
+        evidence_frames: [],
+        has_detections: false,
+        peak_time_seconds: null,
+        is_dataset_benchmark: false
       });
     }
 
@@ -134,10 +210,20 @@ export const videoService = {
 
   getVideoById(id) {
     const videos = this.getAllVideos();
-    return videos.find((v) => v.id === id || v.file_name === id || v.stem === id) || null;
+    const stem = path.parse(id).name;
+    return videos.find((v) => 
+      v.id === id || 
+      v.clip_id === id || 
+      v.file_name === id || 
+      v.stem === id ||
+      v.stem === stem
+    ) || null;
   },
 
   resolveVideoPath(relativePath) {
+    if (!relativePath) {
+      throw new Error('No relative path provided');
+    }
     const safeRel = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '');
     const fullPath = path.resolve(CLIPS_ROOT, safeRel);
     if (!fullPath.startsWith(CLIPS_ROOT)) {

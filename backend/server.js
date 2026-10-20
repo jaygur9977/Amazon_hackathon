@@ -38,16 +38,19 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Safe static media serving
 const CLIPS_ROOT = path.resolve(ROOT_DIR, process.env.VIDEO_ROOT || 'clips');
 const THUMBNAILS_ROOT = path.resolve(ROOT_DIR, 'thumbnails');
 const EVIDENCE_ROOT = path.resolve(ROOT_DIR, process.env.EVIDENCE_ROOT || 'evidence');
+const DETECTIONS_ROOT = path.resolve(ROOT_DIR, 'detections');
 
 function serveSafeFile(baseDir, req, res) {
   try {
-    const safePath = path.normalize(req.params[0] || req.params.file).replace(/^(\.\.[\/\\])+/, '');
+    const rawParam = req.params[0] || req.params.file || '';
+    const safePath = path.normalize(rawParam).replace(/^(\.\.[\/\\])+/, '');
     const fullPath = path.resolve(baseDir, safePath);
 
     if (!fullPath.startsWith(baseDir)) {
@@ -87,6 +90,7 @@ function serveSafeFile(baseDir, req, res) {
 app.get('/media/clips/*', (req, res) => serveSafeFile(CLIPS_ROOT, req, res));
 app.get('/media/thumbnails/:file', (req, res) => serveSafeFile(THUMBNAILS_ROOT, req, res));
 app.get('/media/evidence/*', (req, res) => serveSafeFile(EVIDENCE_ROOT, req, res));
+app.get('/media/detections/:file', (req, res) => serveSafeFile(DETECTIONS_ROOT, req, res));
 
 // API routes
 app.use('/api/videos', videosRouter);
@@ -98,7 +102,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    version: '1.0.0',
+    version: '2.0.0',
     timestamp: new Date().toISOString(),
     ai_model: 'openai/gpt-oss-120b',
     has_groq_key: Boolean(process.env.GROQ_API_KEY),
