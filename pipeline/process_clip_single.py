@@ -282,6 +282,119 @@ class VideoAnalysisEngine:
         log_stage("frame_analysis", f"Total {len(self.extracted)} keyframes extracted and analyzed across video.")
         return sorted_indices
 
+    def analyze_with_vision_model(self, frames_list):
+        """
+        Genuinely classifies video frames using Groq Multimodal Vision (qwen/qwen3.8-27b).
+        """
+        import os, base64, json
+
+        # 1. Resolve GROQ API key
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            env_path = os.path.join(os.path.dirname(__file__), "..", "backend", ".env")
+            if os.path.exists(env_path):
+                with open(env_path) as ef:
+                    for line in ef:
+                        if line.startswith("GROQ_API_KEY="):
+                            api_key = line.strip().split("=", 1)[1].strip()
+                            break
+
+        if not api_key:
+            sys.stderr.write("[VISION ENGINE NOTICE] GROQ_API_KEY not found. Proceeding with heuristic classification.\n")
+            return None
+
+        # 2. Select up to 3 representative keyframes (Groq Qwen model supports max 3 images)
+        if len(frames_list) <= 3:
+            selected = frames_list
+        else:
+            # Pick beginning, peak motion/activity moment, and final frame
+            idx_start = 0
+            idx_end = len(frames_list) - 1
+            # Find frame with max person or motion between start and end
+            mid_slice = frames_list[1:idx_end]
+            if mid_slice:
+                peak_mid = max(mid_slice, key=lambda f: len(f.get("person_boxes", [])) * 2 + f.get("motion_score", 0))
+                selected = [frames_list[idx_start], peak_mid, frames_list[idx_end]]
+            else:
+                selected = [frames_list[idx_start], frames_list[idx_end]]
+
+        selected_names = [f["file_name"] for f in selected]
+        log_stage("vision_model", f"Sending {len(selected)} keyframes to Qwen 3.8-27B Vision Model on Groq...")
+        sys.stderr.write(f"\n====================================================================\n")
+        sys.stderr.write(f"[VISION ENGINE] Extracted total {len(frames_list)} keyframes for {os.path.basename(self.clip_path)}.\n")
+        sys.stderr.write(f"[VISION ENGINE] Selected {len(selected)} keyframes for AI Vision: {selected_names}\n")
+        sys.stderr.write(f"[VISION ENGINE] Calling Groq multimodal vision model (qwen/qwen3.8-27b)...\n")
+        sys.stderr.flush()
+
+        try:
+            from groq import Groq
+            client = Groq(api_key=api_key)
+
+            prompt = """You are a senior security vision analyst for a Ring/Doorbell security camera system.
+You will see keyframes sampled from one security video in chronological order with their timestamps.
+Classify the video into EXACTLY ONE of the following valid events:
+1. package_delivered - Courier, mail carrier, or delivery worker arrives at door/porch and drops off, leaves, or hands over a parcel/package/box.
+2. package_taken_by_stranger - Porch piracy, theft, or burglary: an unauthorized person takes or steals a package, item, or property from the doorstep, porch, or vehicle.
+3. package_collected_by_resident - Homeowner or resident steps out to retrieve packages, mail, or groceries from the door.
+4. visitor_at_door - A visitor, friend, guest, or neighbor approaches, knocks, rings the doorbell, or stands waiting at the entrance.
+5. person_lingering - Suspicious loitering, pacing back and forth, peeking into windows, or lingering near the house/car without legitimate purpose.
+6. unusual_activity - Night driveway intrusion, vehicle tampering, gate climbing, trespassing, or other security alerts.
+
+Respond with ONLY a single raw JSON object matching this schema (no markdown, no quotes around the json block):
+{
+  "event": "one of: package_delivered, package_taken_by_stranger, package_collected_by_resident, visitor_at_door, person_lingering, unusual_activity",
+  "category": "Human readable event category title (e.g. Package Delivered, Porch Piracy / Theft, Visitor at Door, etc.)",
+  "subcategory": "Brief specific subcategory",
+  "description": "One concise, plain English sentence describing exactly what happened visually.",
+  "detailedDescription": "Comprehensive 2-3 sentence visual narrative of the event progression.",
+  "risk": "low or high",
+  "unusual": true or false,
+  "objects": ["person", "package", "vehicle", etc],
+  "riskEvidence": "Concrete visual evidence from the frames supporting the risk rating."
+}"""
+
+            content = [{"type": "text", "text": prompt}]
+            for f in selected:
+                full_path = os.path.join(self.out_dir, f["file_name"])
+                if os.path.exists(full_path):
+                    with open(full_path, "rb") as fh:
+                        b64 = base64.b64encode(fh.read()).decode("utf-8")
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
+                    })
+
+            completion = client.chat.completions.create(
+                model="qwen/qwen3.8-27b",
+                messages=[{"role": "user", "content": content}],
+                temperature=0.1,
+                max_tokens=400
+            )
+
+            raw_text = completion.choices[0].message.content.strip()
+            if raw_text.startswith("```"):
+                raw_text = raw_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+            data = json.loads(raw_text)
+
+            if data.get("event") in VALID_EVENTS:
+                sys.stderr.write(f"[VISION ENGINE SUCCESS] Vision Model Prediction:\n")
+                sys.stderr.write(f"  -> Event: {data['event']}\n")
+                sys.stderr.write(f"  -> Category: {data.get('category')}\n")
+                sys.stderr.write(f"  -> Risk: {data.get('risk')}\n")
+                sys.stderr.write(f"  -> Objects: {data.get('objects')}\n")
+                sys.stderr.write(f"  -> Summary: {data.get('description')}\n")
+                sys.stderr.write(f"====================================================================\n\n")
+                sys.stderr.flush()
+                return data
+            else:
+                sys.stderr.write(f"[VISION ENGINE NOTICE] Returned unrecognized event '{data.get('event')}'. Using fallback.\n")
+                return None
+        except Exception as e:
+            sys.stderr.write(f"[VISION ENGINE ERROR] Groq vision API error: {str(e)}. Proceeding with heuristic fallback.\n")
+            sys.stderr.flush()
+            return None
+
     def construct_analysis(self, sorted_indices):
         """Constructs schema-compliant, grounded timeline and event result."""
         log_stage("timeline_construction", "Constructing event timeline and detection overlays...")
@@ -333,66 +446,89 @@ class VideoAnalysisEngine:
                 "coverage_gap": gap > 8.0
             })
 
-        # Infer category and risk
+        # Determine clip file and bucket name
         fn = os.path.basename(self.clip_path).lower()
-        bucket = os.path.basename(os.path.dirname(os.path.dirname(self.clip_path))).lower()
+        parent_dir = os.path.basename(os.path.dirname(self.clip_path)).lower()
+        grandparent_dir = os.path.basename(os.path.dirname(os.path.dirname(self.clip_path))).lower()
+        bucket = grandparent_dir if grandparent_dir and grandparent_dir not in ("clips", "amazon_hackathon_clips") else parent_dir
         if not bucket or bucket in ("clips", "amazon_hackathon_clips"):
-            bucket = os.path.basename(os.path.dirname(self.clip_path)).lower()
+            bucket = "uploaded"
 
-        if "theft" in fn or "theft" in bucket:
-            event = "package_taken_by_stranger"
-            category = "Package Taken by Stranger"
-            subcategory = "Unauthorized package removal"
-            risk = "high"
-            unusual = True
-            risk_evidence = "Individual observed taking package from doorstep without resident interaction."
-            desc = "Suspicious person observed taking property without authorization."
-            entities = ["person", "package"]
-        elif "delivery" in fn or "delivery" in bucket:
-            event = "package_delivered"
-            category = "Package Delivered"
-            subcategory = "Front door parcel drop-off"
-            risk = "low"
-            unusual = False
-            risk_evidence = "Standard parcel drop-off by courier during normal hours."
-            desc = "A delivery person approached the entrance and delivered a package."
-            entities = ["person", "package"]
-        elif "pickup" in fn or "resident" in bucket:
-            event = "package_collected_by_resident"
-            category = "Package Collected by Resident"
-            subcategory = "Resident parcel retrieval"
-            risk = "low"
-            unusual = False
-            risk_evidence = "Expected resident activity collecting packages from entryway."
-            desc = "Resident retrieved a package from the door area."
-            entities = ["person", "package"]
-        elif "visitor" in fn or "visitor" in bucket:
-            event = "visitor_at_door"
-            category = "Visitor at Door"
-            subcategory = "Guest arrival"
-            risk = "low"
-            unusual = False
-            risk_evidence = "Visitor standing at doorway waiting for entry."
-            desc = "A visitor arrived at the door."
-            entities = ["person", "door"]
-        elif "suspicious" in fn or "burglary" in fn or "stealing" in fn or max_motion > 0.15:
-            event = "person_lingering" if "01" in fn or "04" in fn else "unusual_activity"
-            category = "Unusual Activity" if event == "unusual_activity" else "Person Lingering"
-            subcategory = "Suspicious perimeter behavior"
-            risk = "high"
-            unusual = True
-            risk_evidence = f"Unusual lingering or elevated motion ({max_motion:.2f}) observed on property."
-            desc = "Unusual movement and suspicious activity recorded on camera."
-            entities = ["person"]
+        # Step 1: Attempt real Multimodal AI Vision classification on extracted frames
+        vision_result = self.analyze_with_vision_model(frames_list)
+
+        if vision_result:
+            event = vision_result.get("event", "unusual_activity")
+            category = vision_result.get("category", event.replace("_", " ").title())
+            subcategory = vision_result.get("subcategory", "Visual detection")
+            desc = vision_result.get("description", "Security event recorded on camera.")
+            detailed_desc = vision_result.get("detailedDescription", desc)
+            risk = vision_result.get("risk", "low")
+            unusual = bool(vision_result.get("unusual", risk == "high"))
+            entities = vision_result.get("objects", ["person"])
+            risk_evidence = vision_result.get("riskEvidence", f"Visual assessment identified {event.replace('_', ' ')}.")
         else:
-            event = "unusual_activity"
-            category = "Activity Detected"
-            subcategory = "General movement"
-            risk = "low"
-            unusual = False
-            risk_evidence = "Normal background activity."
-            desc = f"Activity recorded on camera for {os.path.basename(self.clip_path)}."
-            entities = ["person"] if has_any_person else ["environment"]
+            # Fallback heuristic categorization
+            if "theft" in fn or "theft" in bucket:
+                event = "package_taken_by_stranger"
+                category = "Package Taken by Stranger"
+                subcategory = "Unauthorized package removal"
+                risk = "high"
+                unusual = True
+                risk_evidence = "Individual observed taking package from doorstep without resident interaction."
+                desc = "Suspicious person observed taking property without authorization."
+                detailed_desc = desc
+                entities = ["person", "package"]
+            elif "delivery" in fn or "delivery" in bucket:
+                event = "package_delivered"
+                category = "Package Delivered"
+                subcategory = "Front door parcel drop-off"
+                risk = "low"
+                unusual = False
+                risk_evidence = "Standard parcel drop-off by courier during normal hours."
+                desc = "A delivery person approached the entrance and delivered a package."
+                detailed_desc = desc
+                entities = ["person", "package"]
+            elif "pickup" in fn or "resident" in bucket:
+                event = "package_collected_by_resident"
+                category = "Package Collected by Resident"
+                subcategory = "Resident parcel retrieval"
+                risk = "low"
+                unusual = False
+                risk_evidence = "Expected resident activity collecting packages from entryway."
+                desc = "Resident retrieved a package from the door area."
+                detailed_desc = desc
+                entities = ["person", "package"]
+            elif "visitor" in fn or "visitor" in bucket:
+                event = "visitor_at_door"
+                category = "Visitor at Door"
+                subcategory = "Guest arrival"
+                risk = "low"
+                unusual = False
+                risk_evidence = "Visitor standing at doorway waiting for entry."
+                desc = "A visitor arrived at the door."
+                detailed_desc = desc
+                entities = ["person", "door"]
+            elif "suspicious" in fn or "burglary" in fn or "stealing" in fn or max_motion > 0.15:
+                event = "person_lingering" if "01" in fn or "04" in fn else "unusual_activity"
+                category = "Unusual Activity" if event == "unusual_activity" else "Person Lingering"
+                subcategory = "Suspicious perimeter behavior"
+                risk = "high"
+                unusual = True
+                risk_evidence = f"Unusual lingering or elevated motion ({max_motion:.2f}) observed on property."
+                desc = "Unusual movement and suspicious activity recorded on camera."
+                detailed_desc = desc
+                entities = ["person"]
+            else:
+                event = "unusual_activity"
+                category = "Activity Detected"
+                subcategory = "General movement"
+                risk = "low"
+                unusual = False
+                risk_evidence = "Normal background activity."
+                desc = f"Activity recorded on camera for {os.path.basename(self.clip_path)}."
+                detailed_desc = desc
+                entities = ["person"] if has_any_person else ["environment"]
 
         stem = os.path.splitext(os.path.basename(self.clip_path))[0]
         evidence_frames = [f["file_name"] for f in frames_list]

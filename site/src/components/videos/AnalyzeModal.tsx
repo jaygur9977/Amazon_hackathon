@@ -28,9 +28,12 @@ export const AnalyzeModal: React.FC<AnalyzeModalProps> = ({
   const [job, setJob] = useState<AnalysisJob | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const hasCompletedRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!isOpen || !jobId) return;
+
+    hasCompletedRef.current = false;
 
     // Fetch initial job
     api.getJob(jobId).then((j) => {
@@ -51,9 +54,14 @@ export const AnalyzeModal: React.FC<AnalyzeModalProps> = ({
           setLogs((prev) => [...prev, data.message]);
           setJob((prev) => prev ? { ...prev, stage: data.stage, status: data.status } : null);
         } else if (data.type === 'done') {
+          // Immediately close stream to avoid auto-reconnect loops
+          es.close();
           setJob(data.job);
           if (data.job?.logs) setLogs(data.job.logs);
-          onCompleted();
+          if (!hasCompletedRef.current) {
+            hasCompletedRef.current = true;
+            onCompleted?.();
+          }
         }
       } catch (err) {
         console.error('SSE parse error:', err);
@@ -62,13 +70,14 @@ export const AnalyzeModal: React.FC<AnalyzeModalProps> = ({
 
     es.onerror = () => {
       es.close();
-      // Poll once to get final state
+      // Poll once to get final state without infinite reconnect
       api.getJob(jobId).then((j) => {
         setJob(j);
-        if (j.status === 'completed' || j.status === 'failed') {
-          onCompleted();
+        if ((j.status === 'completed' || j.status === 'failed') && !hasCompletedRef.current) {
+          hasCompletedRef.current = true;
+          onCompleted?.();
         }
-      });
+      }).catch(() => {});
     };
 
     return () => {

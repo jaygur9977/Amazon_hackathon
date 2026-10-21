@@ -210,6 +210,10 @@ export const pipelineService = {
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
+
+          // Always print directly to backend server console
+          console.log(`[VIDEO-PIPELINE] ${trimmed}`);
+
           if (trimmed.startsWith('[stage:')) {
             const match = trimmed.match(/^\[stage:([^\]]+)\]\s*(.*)$/);
             if (match) {
@@ -219,7 +223,7 @@ export const pipelineService = {
               continue;
             }
           }
-          this.log(job, `[engine] ${trimmed}`);
+          this.log(job, trimmed.startsWith('[VISION ENGINE') ? trimmed : `[engine] ${trimmed}`);
         }
       });
 
