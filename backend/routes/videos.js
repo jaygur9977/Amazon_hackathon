@@ -253,6 +253,24 @@ router.get('/:id/detections', (req, res) => {
   }
 });
 
+// POST /api/videos/:id/ask - Per-Video RAG Q&A
+router.post('/:id/ask', async (req, res) => {
+  try {
+    const { question, history } = req.body;
+    if (!question || typeof question !== 'string') {
+      return res.status(400).json({ success: false, error: 'A question is required.' });
+    }
+
+    const response = await ragService.askVideo(req.params.id, question, history || []);
+    res.json({
+      success: true,
+      ...response
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/videos/:id - Single video metadata
 router.get('/:id', (req, res) => {
   try {

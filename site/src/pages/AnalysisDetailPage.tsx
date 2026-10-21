@@ -14,7 +14,10 @@ import {
   Play,
   CheckCircle,
   HelpCircle,
-  Eye
+  Eye,
+  Send,
+  Bot,
+  MessageSquare
 } from 'lucide-react';
 import { api } from '../services/api';
 import { VideoClip, DetectionData } from '../types';
@@ -40,6 +43,50 @@ export const AnalysisDetailPage: React.FC = () => {
 
   // Selected evidence frame for preview modal
   const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
+
+  // Per-video Forensic RAG state
+  const [qaMessages, setQaMessages] = useState<{ sender: 'user' | 'assistant'; text: string; model?: string }[]>([
+    {
+      sender: 'assistant',
+      text: 'Ask me anything about this specific video clip. I can analyze visible people, objects, actions, timeline progression, and security risk factors.'
+    }
+  ]);
+  const [qaInput, setQaInput] = useState('');
+  const [isAsking, setIsAsking] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const handleAskQuestion = async (qText?: string) => {
+    const textToSend = qText || qaInput.trim();
+    if (!textToSend || !id || isAsking) return;
+
+    setQaInput('');
+    const newMessages = [...qaMessages, { sender: 'user' as const, text: textToSend }];
+    setQaMessages(newMessages);
+    setIsAsking(true);
+
+    try {
+      const historyPayload = newMessages.map((m) => ({ sender: m.sender, text: m.text }));
+      const res = await api.askVideo(id, textToSend, historyPayload);
+      setQaMessages((prev) => [
+        ...prev,
+        {
+          sender: 'assistant',
+          text: res.answer,
+          model: res.model
+        }
+      ]);
+    } catch (err: any) {
+      setQaMessages((prev) => [
+        ...prev,
+        {
+          sender: 'assistant',
+          text: `⚠️ Query error: ${err.message || 'Unable to retrieve answer.'}`
+        }
+      ]);
+    } finally {
+      setIsAsking(false);
+    }
+  };
 
   const fetchVideoDetails = async () => {
     if (!id) return;
@@ -342,6 +389,120 @@ export const AnalysisDetailPage: React.FC = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Forensic Video Q&A Section (Per-Video RAG) */}
+      <div className="p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-emerald-100 text-emerald-800">
+              <Bot className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-base text-slate-900 tracking-tight">
+                Ask AI About This Video (Forensic Intelligence RAG)
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Inquire about specific actions, timeline moments, visible attire, objects, or security risk evidence for this recording.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 self-start md:self-auto border border-slate-200">
+            Target: {video.file_name}
+          </span>
+        </div>
+
+        {/* Quick Suggestion Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-slate-400">Suggested:</span>
+          {[
+            'What happens in this clip from start to finish?',
+            'Explain why this risk rating was assigned',
+            'What visible objects and entities are in the scene?',
+            'What happens during the peak activity moment?'
+          ].map((prompt, idx) => (
+            <button
+              key={idx}
+              type="button"
+              disabled={isAsking}
+              onClick={() => handleAskQuestion(prompt)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-slate-700 transition"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+
+        {/* Chat History Container */}
+        <div className="space-y-4 max-h-[420px] overflow-y-auto p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+          {qaMessages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex gap-3 text-xs leading-relaxed ${
+                msg.sender === 'user' ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              {msg.sender === 'assistant' && (
+                <div className="w-7 h-7 rounded-xl bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot size={15} />
+                </div>
+              )}
+              <div
+                className={`p-4 rounded-2xl max-w-2xl shadow-sm ${
+                  msg.sender === 'user'
+                    ? 'bg-emerald-600 text-white rounded-br-none font-medium'
+                    : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
+                }`}
+              >
+                <div className="whitespace-pre-wrap">{msg.text}</div>
+                {msg.model && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <span>Model: {msg.model}</span>
+                    <span className="text-emerald-600 font-semibold">Grounded in video telemetry</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {isAsking && (
+            <div className="flex gap-3 text-xs justify-start items-center">
+              <div className="w-7 h-7 rounded-xl bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0">
+                <RotateCw size={14} className="animate-spin text-emerald-400" />
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-slate-500 font-medium text-xs flex items-center gap-2">
+                <span>Analyzing timeline, frame detections, and telemetry for answer...</span>
+              </div>
+            </div>
+          )}
+          <div ref={chatBottomRef} />
+        </div>
+
+        {/* Question Input */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAskQuestion();
+          }}
+          className="flex items-center gap-2"
+        >
+          <input
+            type="text"
+            value={qaInput}
+            onChange={(e) => setQaInput(e.target.value)}
+            disabled={isAsking}
+            placeholder={`Ask anything about ${video.file_name} (e.g. "What did the person carry?", "At what timestamp did they arrive?")...`}
+            className="flex-1 px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+          />
+          <button
+            type="submit"
+            disabled={isAsking || !qaInput.trim()}
+            className="px-5 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm"
+          >
+            <span>Ask AI</span>
+            <Send size={13} />
+          </button>
+        </form>
       </div>
 
       {/* Analysis Modal */}

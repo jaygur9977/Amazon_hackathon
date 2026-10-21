@@ -1,4 +1,5 @@
 import Groq from 'groq-sdk';
+import path from 'path';
 import { storageService } from './storageService.js';
 import { videoService } from './videoService.js';
 
@@ -306,6 +307,128 @@ Strict instructions:
         answer: `${fallback}\n\n*(Note: Grounded factual response retrieved from verified database records).*`,
         citations,
         model: 'Neural Retrieval Fallback',
+        grounded: true,
+        error: err.message
+      };
+    }
+  },
+
+  async askVideo(clipId, query, history = []) {
+    const docs = this.getDocuments();
+    const stem = path.parse(clipId).name;
+    const doc = docs.find((d) => 
+      d.clip_id === clipId || 
+      d.file_name === clipId || 
+      d.id === clipId || 
+      d.clip_id === stem ||
+      d.file_name === `${stem}.mp4`
+    );
+
+    if (!doc) {
+      return {
+        answer: `Video record for "${clipId}" was not found in the indexed database.`,
+        citations: [],
+        model: 'Neural Vision Core',
+        grounded: false
+      };
+    }
+
+    const timelineText = (doc.timeline || []).map((t) => 
+      `- [${t.startTime} - ${t.endTime}]: ${t.action}${t.observations ? ` (Visual observations: ${t.observations})` : ''}${t.entities?.length ? ` (Entities: ${t.entities.join(', ')})` : ''}`
+    ).join('\n');
+
+    const videoContext = `=== VIDEO DOSSIER: ${doc.file_name} (ID: ${doc.clip_id}) ===
+Event Type: ${doc.event}
+Category: ${doc.category || doc.event} (${doc.subcategory || 'Security footage'})
+Assessed Risk: ${doc.risk.toUpperCase()}
+Risk Evidence: ${doc.riskEvidence || 'Standard surveillance activity'}
+Executive Summary: ${doc.description}
+Detailed Narrative: ${doc.detailedDescription || doc.description}
+Visible Objects & Entities: ${(doc.entities || []).join(', ') || 'N/A'}
+Duration: ${doc.duration_sec}s
+Peak Activity Second: ${doc.peak_time_seconds ? `${doc.peak_time_seconds}s` : 'N/A'}
+Peak Keyframe: ${doc.peak_frame || 'N/A'}
+
+=== CHRONOLOGICAL TIMELINE SEGMENTS ===
+${timelineText || 'No detailed timeline segments available.'}`;
+
+    const systemPrompt = `You are the specialized AI Video Forensic Assistant for this specific security camera clip: "${doc.file_name}".
+Your task is to answer user inquiries about this video in detail, with extreme factual precision.
+
+Rules:
+1. Base your answer STRICTLY on the provided video dossier and timeline segments above.
+2. Whenever you mention a specific moment or action, always cite the timestamp in square brackets like [00:04] or [00:01 - 00:03] so the user can seek to it.
+3. If asked about what a person did, what objects were visible, why it's high/low risk, or the sequence of events, describe it clearly in chronological order.
+4. If a detail is not visible or established in the video data, explicitly state: "The video telemetry does not establish [detail]."
+5. Use markdown formatting with bullet points and bold timestamps for readability.`;
+
+    const apiKey = process.env.GROQ_API_KEY;
+
+    if (!apiKey) {
+      return {
+        answer: `**Analysis for ${doc.file_name}**:\n• **Event**: ${doc.category || doc.event}\n• **Summary**: ${doc.description}\n• **Risk**: ${doc.risk.toUpperCase()} (${doc.riskEvidence || 'Standard activity'})\n• **Visible Objects**: ${(doc.entities || []).join(', ')}\n\n*Timeline Highlights*:\n${(doc.timeline || []).slice(0, 4).map(t => `• [${t.startTime}] ${t.action}`).join('\n')}`,
+        citations: [{
+          clip_id: doc.clip_id,
+          file_name: doc.file_name,
+          event: doc.event,
+          risk: doc.risk,
+          timeline: doc.timeline
+        }],
+        model: 'Local Forensic Core',
+        grounded: true
+      };
+    }
+
+    try {
+      const groq = new Groq({ apiKey });
+      const messages = [
+        { role: 'system', content: `${systemPrompt}\n\n${videoContext}` },
+        ...history.slice(-4).map((h) => ({
+          role: h.sender === 'user' ? 'user' : 'assistant',
+          content: h.text
+        })),
+        { role: 'user', content: query }
+      ];
+
+      const completion = await groq.chat.completions.create({
+        model: 'openai/gpt-oss-120b',
+        messages,
+        temperature: 0.1,
+        max_tokens: 600
+      });
+
+      const answer = completion.choices[0]?.message?.content || 'No response generated.';
+
+      return {
+        answer,
+        clip_id: doc.clip_id,
+        file_name: doc.file_name,
+        citations: [{
+          clip_id: doc.clip_id,
+          file_name: doc.file_name,
+          event: doc.event,
+          risk: doc.risk,
+          timeline: doc.timeline,
+          thumbnail_url: doc.thumbnail_url,
+          video_url: doc.video_url
+        }],
+        model: 'Groq GPT-OSS 120B Video RAG',
+        grounded: true
+      };
+    } catch (err) {
+      console.error('Video RAG Error:', err.message);
+      return {
+        answer: `**${doc.file_name} Intelligence Summary**:\n• **Classification**: ${doc.category || doc.event}\n• **Risk Level**: ${doc.risk} (${doc.riskEvidence || 'Standard event'})\n• **Observation**: ${doc.description}\n\n*Relevant Timeline*:\n${(doc.timeline || []).slice(0, 4).map(t => `• [${t.startTime}] ${t.action}`).join('\n')}`,
+        clip_id: doc.clip_id,
+        file_name: doc.file_name,
+        citations: [{
+          clip_id: doc.clip_id,
+          file_name: doc.file_name,
+          event: doc.event,
+          risk: doc.risk,
+          timeline: doc.timeline
+        }],
+        model: 'Forensic Fallback Engine',
         grounded: true,
         error: err.message
       };

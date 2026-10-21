@@ -149,6 +149,28 @@ export const api = {
     return res.json();
   },
 
+  async askVideo(
+    id: string,
+    question: string,
+    history: { sender: string; text: string }[] = []
+  ): Promise<{
+    answer: string;
+    citations: RAGCitation[];
+    model: string;
+    grounded: boolean;
+  }> {
+    const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, history })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Failed to query video intelligence');
+    }
+    return res.json();
+  },
+
   async deleteVideo(id: string): Promise<{ success: boolean; message: string }> {
     const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}`, {
       method: 'DELETE'
