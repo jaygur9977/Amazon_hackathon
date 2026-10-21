@@ -130,6 +130,17 @@ def download_direct_stream(url, out_dir, title_hint=None, max_size_mb=250):
     }
 
 
+class YtDlpSilentLogger:
+    def debug(self, msg):
+        pass
+    def info(self, msg):
+        pass
+    def warning(self, msg):
+        pass
+    def error(self, msg):
+        sys.stderr.write(f"[yt-dlp:error] {msg}\n")
+
+
 def download_ytdlp_video(url, out_dir, max_duration=600):
     """
     Downloads video using yt-dlp with automatic ffmpeg binary integration
@@ -140,11 +151,13 @@ def download_ytdlp_video(url, out_dir, max_duration=600):
 
     os.makedirs(out_dir, exist_ok=True)
 
-    # Base options
+    # Base options - strictly silent on stdout
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
+        'noprogress': True,
         'noplaylist': True,
+        'logger': YtDlpSilentLogger(),
         'outtmpl': os.path.join(out_dir, '%(id)s.%(ext)s'),
     }
 

@@ -163,7 +163,32 @@ router.post('/ingest-url', async (req, res) => {
           return reject(new Error(errDetail));
         }
         try {
-          const parsedOutput = JSON.parse(stdout.trim());
+          // Robust JSON extraction: look for JSON line from the end of stdout
+          const lines = stdout.trim().split(/\r?\n/);
+          let parsedOutput = null;
+
+          for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i].trim();
+            if (line.startsWith('{') && line.endsWith('}')) {
+              try {
+                parsedOutput = JSON.parse(line);
+                break;
+              } catch (_) {}
+            }
+          }
+
+          if (!parsedOutput) {
+            // Fallback: extract first valid JSON block
+            const match = stdout.match(/\{[\s\S]*\}/);
+            if (match) {
+              parsedOutput = JSON.parse(match[0]);
+            }
+          }
+
+          if (!parsedOutput) {
+            throw new Error(`No JSON output received from downloader. Process output was:\n${stdout.slice(0, 300)}`);
+          }
+
           resolve(parsedOutput);
         } catch (e) {
           reject(new Error(`Failed to parse ingestion output: ${e.message}`));
