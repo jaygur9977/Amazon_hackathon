@@ -4,49 +4,126 @@ import {
   AnalysisResult, 
   DashboardStats, 
   ChatMessage, 
-  RAGCitation,
-  DetectionData,
-  DailySummaryItem,
-  CloudConnector
+  RAGCitation, 
+  DetectionData, 
+  DailySummaryItem, 
+  CloudConnector 
 } from '../types';
 
-const API_BASE = ((import.meta as any).env?.API_BASE_URL as string) || '/api';
+export const getStoredBackendUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('aegis_backend_url') || '';
+  }
+  return '';
+};
+
+export const setStoredBackendUrl = (url: string): void => {
+  if (typeof window !== 'undefined') {
+    if (!url || !url.trim()) {
+      localStorage.removeItem('aegis_backend_url');
+    } else {
+      localStorage.setItem('aegis_backend_url', url.trim());
+    }
+  }
+};
+
+export const getApiBase = (): string => {
+  const custom = getStoredBackendUrl();
+  if (custom) {
+    const clean = custom.replace(/\/+$/, '');
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+  }
+  const envUrl = ((import.meta as any).env?.VITE_API_BASE_URL as string);
+  if (envUrl) {
+    const clean = envUrl.replace(/\/+$/, '');
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+  }
+  return '/api';
+};
+
+export const getBackendOrigin = (): string => {
+  const apiBase = getApiBase();
+  if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
+    return apiBase.replace(/\/api\/?$/, '');
+  }
+  return '';
+};
+
+export const resolveMediaUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const origin = getBackendOrigin();
+  if (origin && url.startsWith('/')) {
+    return `${origin}${url}`;
+  }
+  return url;
+};
+
+const mapVideoMediaUrls = (v: VideoClip): VideoClip => ({
+  ...v,
+  thumbnail_url: resolveMediaUrl(v.thumbnail_url),
+  video_url: resolveMediaUrl(v.video_url),
+  evidence_frames: (v.evidence_frames || []).map(resolveMediaUrl)
+});
 
 export const api = {
-  async getVideos(): Promise<{ count: number; videos: VideoClip[] }> {
-    const res = await fetch(`${API_BASE}/videos`);
-    if (!res.ok) throw new Error(`Failed to fetch videos: ${res.statusText}`);
+  getStoredBackendUrl,
+  setStoredBackendUrl,
+  getApiBase,
+  getBackendOrigin,
+  resolveMediaUrl,
+
+  async checkHealth(): Promise<{ status: string; has_groq_key: boolean; version?: string }> {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/health`, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`);
     return res.json();
   },
 
+  async getVideos(): Promise<{ count: number; videos: VideoClip[] }> {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos`);
+    if (!res.ok) throw new Error(`Failed to fetch videos: ${res.statusText}`);
+    const data = await res.json();
+    return {
+      ...data,
+      videos: (data.videos || []).map(mapVideoMediaUrls)
+    };
+  },
+
   async getVideo(id: string): Promise<VideoClip> {
-    const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos/${encodeURIComponent(id)}`);
     if (!res.ok) throw new Error(`Failed to fetch video: ${res.statusText}`);
     const data = await res.json();
-    return data.video;
+    return mapVideoMediaUrls(data.video);
   },
 
   async getVideoDetections(id: string): Promise<DetectionData> {
-    const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}/detections`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos/${encodeURIComponent(id)}/detections`);
     if (!res.ok) throw new Error(`Failed to fetch detections: ${res.statusText}`);
     const data = await res.json();
     return data.detection;
   },
 
   async searchVideos(query: string, limit = 20): Promise<{ count: number; results: any[] }> {
-    const res = await fetch(`${API_BASE}/videos/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos/search?q=${encodeURIComponent(query)}&limit=${limit}`);
     if (!res.ok) throw new Error(`Search request failed: ${res.statusText}`);
     return res.json();
   },
 
   async getCloudConnectors(): Promise<{ connectors: CloudConnector[] }> {
-    const res = await fetch(`${API_BASE}/videos/cloud-connectors`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos/cloud-connectors`);
     if (!res.ok) throw new Error(`Failed to fetch cloud connectors: ${res.statusText}`);
     return res.json();
   },
 
   async ingestRemoteUrl(url: string, title?: string): Promise<{ success: boolean; message: string; video: VideoClip }> {
-    const res = await fetch(`${API_BASE}/videos/ingest-url`, {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos/ingest-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, title })
@@ -55,11 +132,15 @@ export const api = {
     if (!res.ok) {
       throw new Error(data.error || 'Failed to ingest URL');
     }
-    return data;
+    return {
+      ...data,
+      video: mapVideoMediaUrls(data.video)
+    };
   },
 
   async startAnalysis(videoIds: string[]): Promise<AnalysisJob> {
-    const res = await fetch(`${API_BASE}/analysis/jobs`, {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/analysis/jobs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ video_ids: videoIds })
@@ -73,39 +154,45 @@ export const api = {
   },
 
   async getJobs(): Promise<AnalysisJob[]> {
-    const res = await fetch(`${API_BASE}/analysis/jobs`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/analysis/jobs`);
     if (!res.ok) throw new Error('Failed to fetch jobs');
     const data = await res.json();
     return data.jobs;
   },
 
   async getJob(jobId: string): Promise<AnalysisJob> {
-    const res = await fetch(`${API_BASE}/analysis/jobs/${encodeURIComponent(jobId)}`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/analysis/jobs/${encodeURIComponent(jobId)}`);
     if (!res.ok) throw new Error('Failed to fetch job');
     const data = await res.json();
     return data.job;
   },
 
   getJobEventSource(jobId: string): EventSource {
-    return new EventSource(`${API_BASE}/analysis/jobs/${encodeURIComponent(jobId)}/events`);
+    const apiBase = getApiBase();
+    return new EventSource(`${apiBase}/analysis/jobs/${encodeURIComponent(jobId)}/events`);
   },
 
   async getAnalysisResults(): Promise<AnalysisResult[]> {
-    const res = await fetch(`${API_BASE}/analysis/results`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/analysis/results`);
     if (!res.ok) throw new Error('Failed to fetch analysis results');
     const data = await res.json();
     return data.results;
   },
 
   async getAnalysisResult(id: string): Promise<AnalysisResult> {
-    const res = await fetch(`${API_BASE}/analysis/results/${encodeURIComponent(id)}`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/analysis/results/${encodeURIComponent(id)}`);
     if (!res.ok) throw new Error('Failed to fetch analysis result');
     const data = await res.json();
     return data.result;
   },
 
   async retryAnalysis(id: string): Promise<AnalysisJob> {
-    const res = await fetch(`${API_BASE}/analysis/results/${encodeURIComponent(id)}/retry`, {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/analysis/results/${encodeURIComponent(id)}/retry`, {
       method: 'POST'
     });
     if (!res.ok) throw new Error('Failed to retry analysis');
@@ -114,7 +201,8 @@ export const api = {
   },
 
   async getDashboardStats(): Promise<DashboardStats> {
-    const res = await fetch(`${API_BASE}/dashboard/stats`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/dashboard/stats`);
     if (!res.ok) throw new Error('Failed to fetch dashboard stats');
     const data = await res.json();
     return data.stats;
@@ -125,7 +213,8 @@ export const api = {
     if (date && date !== 'all') params.append('date', date);
     if (risk && risk !== 'all') params.append('risk', risk);
     const queryStr = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`${API_BASE}/dashboard/daily-summary${queryStr}`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/dashboard/daily-summary${queryStr}`);
     if (!res.ok) throw new Error('Failed to fetch daily summaries');
     return res.json();
   },
@@ -137,7 +226,8 @@ export const api = {
     grounded: boolean;
     notice?: string;
   }> {
-    const res = await fetch(`${API_BASE}/assistant/chat`, {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/assistant/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, history })
@@ -159,7 +249,8 @@ export const api = {
     model: string;
     grounded: boolean;
   }> {
-    const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}/ask`, {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos/${encodeURIComponent(id)}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, history })
@@ -172,7 +263,8 @@ export const api = {
   },
 
   async deleteVideo(id: string): Promise<{ success: boolean; message: string }> {
-    const res = await fetch(`${API_BASE}/videos/${encodeURIComponent(id)}`, {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/videos/${encodeURIComponent(id)}`, {
       method: 'DELETE'
     });
     if (!res.ok) {
@@ -183,7 +275,8 @@ export const api = {
   },
 
   async clearProcessingJobs(): Promise<{ success: boolean; message: string }> {
-    const res = await fetch(`${API_BASE}/analysis/jobs/clear-processing`, {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/analysis/jobs/clear-processing`, {
       method: 'POST'
     });
     if (!res.ok) {
@@ -194,7 +287,8 @@ export const api = {
   },
 
   async getSources(): Promise<any[]> {
-    const res = await fetch(`${API_BASE}/assistant/sources`);
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/assistant/sources`);
     if (!res.ok) throw new Error('Failed to fetch assistant sources');
     const data = await res.json();
     return data.sources;

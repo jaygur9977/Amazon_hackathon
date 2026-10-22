@@ -15,15 +15,15 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     allowedHosts: [
-      'amazon-hackathon-sepia.vercel.app'
+      'https://amazon-hackathon-beta.vercel.app'
     ],
     proxy: {
       '/api': {
-        target: 'https://aegisvision-backend.onrender.com/',
+        target: 'http://localhost:5000',
         changeOrigin: true
       },
       '/media': {
-        target: 'https://aegisvision-backend.onrender.com/',
+        target: 'http://localhost:5000',
         changeOrigin: true
       }
     }
