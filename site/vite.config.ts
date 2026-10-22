@@ -15,7 +15,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     allowedHosts: [
-      'crucial-artwork-designers-pins.trycloudflare.com'
+      'track-lou-newbie-mustang.trycloudflare.com'
     ],
     proxy: {
       '/api': {

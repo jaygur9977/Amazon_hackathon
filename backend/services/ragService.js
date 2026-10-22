@@ -180,33 +180,74 @@ export const ragService = {
     if (!docs.length) return [];
 
     const targetSec = extractTimeSeconds(query);
+    const qLower = (query || '').toLowerCase();
 
     const scored = docs.map((doc) => {
       let score = calculateScore(qTokens, doc.tokens);
 
-      const qLower = query.toLowerCase();
-      if (doc.file_name?.toLowerCase().includes(qLower) || doc.clip_id?.toLowerCase() === qLower) {
-        score += 2.5;
-      }
-      if (doc.description?.toLowerCase().includes(qLower)) {
-        score += 1.5;
+      const fileLower = (doc.file_name || '').toLowerCase();
+      const clipLower = (doc.clip_id || '').toLowerCase();
+      const stemLower = (doc.stem || '').toLowerCase();
+
+      // Strong boost for explicit clip ID or filename mention
+      if (qLower.includes(fileLower) || (clipLower && qLower.includes(clipLower)) || (stemLower && qLower.includes(stemLower))) {
+        score += 8.0;
       }
 
+      // Check description & riskEvidence match
+      if (doc.description && doc.description.toLowerCase().includes(qLower)) {
+        score += 2.5;
+      }
+      if (doc.riskEvidence && doc.riskEvidence.toLowerCase().includes(qLower)) {
+        score += 2.0;
+      }
+
+      // Timestamp matching boost
       if (targetSec !== null) {
         const hasMatchingSegment = doc.timeline.some(
           (t) => t.start_sec <= targetSec && targetSec <= t.end_sec
         );
-        if (hasMatchingSegment) score += 2.0;
+        if (hasMatchingSegment) score += 3.0;
       }
 
-      if (/theft|stole|take|stranger/i.test(query) && doc.event === 'package_taken_by_stranger') {
-        score += 2.0;
+      // Semantic concept matching
+      if (/theft|stole|steal|taken|stranger|handbag|take items|removal/i.test(query)) {
+        if (doc.event === 'package_taken_by_stranger' || doc.category?.toLowerCase().includes('theft') || doc.category?.toLowerCase().includes('taken')) {
+          score += 3.5;
+        }
       }
-      if (/high risk|threat|danger|alarm/i.test(query) && doc.risk === 'high') {
-        score += 1.2;
+      if (/high risk|threat|danger|alarm|security incident|severe|critical/i.test(query)) {
+        if (doc.risk === 'high') score += 2.5;
       }
-      if (/deliver|package|carrier|box/i.test(query) && (doc.event?.includes('package') || doc.event?.includes('delivery'))) {
-        score += 1.2;
+      if (/deliver|courier|carrier|package drop|parcel/i.test(query)) {
+        if (doc.event?.includes('delivered') || doc.event?.includes('package') || doc.category?.toLowerCase().includes('deliver')) {
+          score += 2.0;
+        }
+      }
+      if (/pickup|collected|collect|resident/i.test(query)) {
+        if (doc.event?.includes('collected') || doc.event?.includes('pickup')) {
+          score += 2.5;
+        }
+      }
+      if (/visitor|guest|arrival|porch|doorbell|ring/i.test(query)) {
+        if (doc.event === 'visitor_at_door' || doc.category?.toLowerCase().includes('visitor')) {
+          score += 2.5;
+        }
+      }
+      if (/lingering|loitering|waiting|idle|standing/i.test(query)) {
+        if (doc.event === 'person_lingering' || doc.description?.toLowerCase().includes('linger')) {
+          score += 2.5;
+        }
+      }
+      if (/unusual|abnormal|suspicious/i.test(query)) {
+        if (doc.unusual || doc.event === 'unusual_activity') {
+          score += 2.0;
+        }
+      }
+      if (/summar|overview|important|key events|highlights/i.test(query)) {
+        // Broad summary boosts high-risk and eventful clips
+        if (doc.risk === 'high') score += 1.5;
+        if (doc.unusual) score += 1.0;
       }
 
       return { doc, score };
@@ -214,40 +255,70 @@ export const ragService = {
 
     scored.sort((a, b) => b.score - a.score);
     const filtered = scored.filter((s) => s.score > 0.05).slice(0, topK);
-    return (filtered.length ? filtered : scored.slice(0, 3)).map((s) => s.doc);
+    return (filtered.length ? filtered : scored.slice(0, topK)).map((s) => s.doc);
   },
 
   async askGroq(query, history = []) {
-    const retrievedDocs = this.retrieve(query, 5);
+    const allDocs = this.getDocuments();
+    const retrievedDocs = this.retrieve(query, 6);
     const apiKey = process.env.GROQ_API_KEY;
 
-    // Build concise, rich context including timestamps and timeline segments
+    // 1. Build a high-level library overview so the model knows the aggregate truth
+    const totalClips = allDocs.length;
+    const categoryCounts = {};
+    let highRiskCount = 0;
+    const highRiskClips = [];
+
+    for (const d of allDocs) {
+      const cat = d.category || d.event || 'Other';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+      if (d.risk === 'high') {
+        highRiskCount++;
+        highRiskClips.push(`[${d.clip_id}] ${d.file_name} (${cat}: ${d.riskEvidence || d.description})`);
+      }
+    }
+
+    const libraryOverview = `Total analyzed surveillance clips in repository: ${totalClips}
+High-risk clips (${highRiskCount}): ${highRiskClips.join('; ')}
+Event category distribution: ${Object.entries(categoryCounts).map(([c, n]) => `${c}: ${n}`).join(', ')}`;
+
+    // 2. Build concise, rich context for retrieved clips including timestamps and timeline segments
     const contextLines = retrievedDocs.map((doc, idx) => {
-      const timelineSnippets = doc.timeline.slice(0, 4).map(
-        (t) => `${t.startTime}-${t.endTime}: ${t.action}`
+      const timelineSnippets = (doc.timeline || []).slice(0, 8).map(
+        (t) => `[${t.startTime}-${t.endTime}] ${t.action}${t.observations ? ` (obs: ${t.observations})` : ''}`
       ).join('; ');
 
-      return `[Clip #${idx + 1}] ID: ${doc.clip_id} | File: ${doc.file_name} | Event: ${doc.event} | Risk: ${doc.risk} | Duration: ${doc.duration_sec}s
+      return `--- CLIP #${idx + 1}: [${doc.clip_id}] ${doc.file_name} ---
+Category: ${doc.category || doc.event} | Risk Level: ${doc.risk.toUpperCase()}
+Risk Evidence: "${doc.riskEvidence || 'Standard baseline activity'}"
 Summary: "${doc.description}"
-Evidence: "${doc.riskEvidence || 'Standard baseline activity'}"
-Entities: ${(doc.entities || []).join(', ')}
-Timeline: ${timelineSnippets || 'N/A'}`;
+Visible Entities/Objects: ${(doc.entities || []).join(', ') || 'N/A'}
+Recorded Duration: ${doc.duration_sec}s
+Timeline Progression:
+${timelineSnippets || 'N/A'}`;
     });
 
     const contextText = contextLines.length > 0
       ? contextLines.join('\n\n')
-      : 'No analyzed video events found in library storage.';
+      : 'No matching video events found in library storage.';
 
-    const systemPrompt = `You are the AI Intelligence Assistant for the AegisVision Video Intelligence Platform.
-Your role is to answer questions about security and doorbell footage based STRICTLY on the retrieved video records below.
+    const systemPrompt = `You are the AI Video Intelligence Assistant for the AegisVision Video Intelligence Platform.
+Your duty is to answer questions about security and doorbell footage based STRICTLY and FAITHFULLY on the retrieved video records and library statistics provided below.
 
-Strict instructions:
-1. Base your answer ONLY on the provided retrieved records. Do NOT invent events, crimes, timestamps, or people that are not in the context.
-2. When answering, cite the clip ID or filename explicitly (e.g. [D-01] or [delivery-01.mp4]).
-3. When referencing actions or time, provide specific timestamps (e.g. at 00:08).
-4. If asked about risk, explain whether it is "low" or "high" and state the exact evidence.
-5. If the stored analysis does not establish the answer, state clearly: "The stored video analysis does not establish [answer]."
-6. Format answers cleanly with markdown bullets and bold timestamps.`;
+=== REPOSITORY SUMMARY ===
+${libraryOverview}
+
+=== RETRIEVED VIDEO EVIDENCE DOSSIERS ===
+${contextText}
+
+=== STRICT INSTRUCTIONS ===
+1. Direct, specific answers: Address the user's current question directly. Do NOT repeat a generic canned template or disclaimers if the evidence answers the query.
+2. Grounding & Citations: Base every factual claim on the evidence above. When referring to a clip, cite its bracketed ID like [D-01] or [delivery-01.mp4].
+3. Timestamps: Whenever discussing actions, movements, or specific occurrences, cite exact timestamps in bracketed format like [00:08] or [00:02 - 00:05].
+4. Risk explanations: When asked why an event is high risk, explain the exact evidence (e.g. unauthorized removal, vehicle breach, loitering).
+5. Distinguish facts from interpretation: Clearly distinguish what was visually recorded (e.g., "A person visible on porch") from deductions.
+6. Uncertainty & negative constraints: If the records do not contain information to answer a part of the question, state honestly what is and is not recorded. Never invent clips, crimes, or people.
+7. Formatting: Use clean markdown with bullet points, bold timestamps, and bold clip IDs for readability.`;
 
     const citations = retrievedDocs.map((d) => ({
       clip_id: d.clip_id,
@@ -264,25 +335,31 @@ Strict instructions:
     }));
 
     if (!apiKey) {
-      const response = this.generateFallbackAnswer(query, retrievedDocs);
+      const response = this.generateFallbackAnswer(query, retrievedDocs, allDocs);
       return {
         answer: response,
         citations,
-        model: 'Neural Vision Intelligence Core',
+        model: 'Neural Vision Intelligence Core (Offline Mode)',
         grounded: true,
-        notice: 'Offline grounded retrieval active. Add API key in .env for generative reasoning.'
+        notice: 'Offline grounded retrieval active. Add GROQ_API_KEY in backend/.env for neural LLM reasoning.'
       };
     }
 
     try {
       const groq = new Groq({ apiKey });
 
+      // Clean conversation history to avoid stale turns overriding current question
+      const cleanHistory = (history || [])
+        .slice(-6)
+        .filter((h) => h && h.text && typeof h.text === 'string' && h.text.trim())
+        .map((h) => ({
+          role: h.sender === 'user' ? 'user' : 'assistant',
+          content: h.text.trim()
+        }));
+
       const messages = [
         { role: 'system', content: systemPrompt },
-        ...history.slice(-4).map((h) => ({
-          role: h.sender === 'user' ? 'user' : 'assistant',
-          content: h.text
-        })),
+        ...cleanHistory,
         { role: 'user', content: query }
       ];
 
@@ -290,25 +367,25 @@ Strict instructions:
         model: 'openai/gpt-oss-120b',
         messages,
         temperature: 0.1,
-        max_tokens: 500
+        max_tokens: 1000
       });
 
       const answer = completion.choices[0]?.message?.content || 'No response generated.';
       return {
         answer,
         citations,
-        model: 'AegisVision Neural Engine',
+        model: 'AegisVision Neural Engine (GPT-OSS 120B)',
         grounded: true
       };
     } catch (err) {
       console.error('LLM Inference Error:', err.message);
-      const fallback = this.generateFallbackAnswer(query, retrievedDocs);
+      const fallback = this.generateFallbackAnswer(query, retrievedDocs, allDocs);
       return {
-        answer: `${fallback}\n\n*(Note: Grounded factual response retrieved from verified database records).*`,
+        answer: fallback,
         citations,
-        model: 'Neural Retrieval Fallback',
+        model: 'AegisVision Neural Fallback',
         grounded: true,
-        error: err.message
+        notice: `API connection notice: ${err.message}. Factual answer synthesized directly from verified database telemetry.`
       };
     }
   },
@@ -435,46 +512,115 @@ Rules:
     }
   },
 
-  generateFallbackAnswer(query, docs) {
+  generateFallbackAnswer(query, docs, allDocs = []) {
     if (!docs.length) {
       return "The stored video analysis does not establish an answer for that query because no matching video records were found in the library database.";
     }
 
-    const q = query.toLowerCase();
+    const q = (query || '').toLowerCase();
     const targetSec = extractTimeSeconds(query);
 
+    // 1. Specific timestamp inquiry
     if (targetSec !== null) {
-      // Find timeline segment matching targetSec
+      const matches = [];
       for (const d of docs) {
-        const seg = d.timeline.find((t) => t.start_sec <= targetSec && targetSec <= t.end_sec);
+        const seg = (d.timeline || []).find((t) => t.start_sec <= targetSec && targetSec <= t.end_sec);
         if (seg) {
-          return `At **${seg.startTime} - ${seg.endTime}** in [${d.clip_id || d.file_name}]:\n• Action: ${seg.action}\n• Entities: ${(seg.entities || []).join(', ') || 'N/A'}\n• Context: ${d.description} (Risk: ${d.risk})`;
+          matches.push(`• **[${d.clip_id}] ${d.file_name}** at [${seg.startTime} - ${seg.endTime}]: ${seg.action}${seg.observations ? ` (${seg.observations})` : ''} [Risk: ${d.risk.toUpperCase()}]`);
         }
       }
+      if (matches.length > 0) {
+        return `Recorded video activity at timestamp **${formatSecondsToTime(targetSec)}**:\n\n${matches.join('\n\n')}`;
+      }
+      return `No specific motion segment was cataloged at exactly ${formatSecondsToTime(targetSec)} in the top matching clips, but here is the closest timeline activity:\n` +
+        docs.slice(0, 3).map((d) => `• **[${d.clip_id}] ${d.file_name}**: ${(d.timeline || []).slice(0, 2).map((t) => `[${t.startTime}] ${t.action}`).join('; ')}`).join('\n');
     }
 
-    if (q.includes('theft') || q.includes('stranger') || q.includes('stole')) {
-      const thefts = docs.filter((d) => d.event === 'package_taken_by_stranger' || d.risk === 'high');
-      return `Identified ${thefts.length} potential incident(s) involving package removal or high-risk activity:\n` +
-        thefts.map((d) => `• **[${d.clip_id}] ${d.file_name}**: ${d.description} (Risk: ${d.risk.toUpperCase()})`).join('\n');
-    }
-
-    if (q.includes('deliver') || q.includes('package')) {
-      const deliveries = docs.filter((d) => d.event?.includes('delivered') || d.event?.includes('package'));
-      return `Found ${deliveries.length} package delivery or retrieval event(s):\n` +
-        deliveries.map((d) => `• **[${d.clip_id}] ${d.file_name}**: ${d.description} (Risk: ${d.risk})`).join('\n');
-    }
-
-    if (q.includes('risk') || q.includes('danger') || q.includes('threat')) {
+    // 2. High risk / threats inquiry
+    if (/high risk|threat|danger|alarm|severe|why was.*risk/i.test(q)) {
       const highRisk = docs.filter((d) => d.risk === 'high');
-      return `Found ${highRisk.length} high-risk alert(s):\n` +
-        highRisk.map((d) => `• **[${d.clip_id}] ${d.file_name}**: ${d.description}\n  Evidence: ${d.riskEvidence || 'Suspicious behavior detected'}`).join('\n');
+      if (highRisk.length > 0) {
+        return `### High-Risk Security Findings\n\n` +
+          highRisk.map((d) => 
+            `• **[${d.clip_id}] ${d.file_name}** (${d.category || d.event}):\n` +
+            `  - **Risk Assessment**: HIGH\n` +
+            `  - **Evidence**: ${d.riskEvidence || d.description}\n` +
+            `  - **Timeline Evidence**: ${(d.timeline || []).slice(0, 3).map(t => `[${t.startTime}] ${t.action}`).join(', ')}`
+          ).join('\n\n');
+      }
+      return `None of the top retrieved clips for this query were classified as high-risk. Stored records classify these as low-risk standard activity.`;
     }
 
-    return `Based on ${docs.length} retrieved record(s):\n` +
-      docs.map((d) => `• **[${d.clip_id}] ${d.file_name}** (${d.category || d.event}): ${d.description}`).join('\n');
+    // 3. Package removal / theft inquiry
+    if (/theft|stole|take|stranger|removal|stolen|package removal/i.test(q)) {
+      const thefts = docs.filter((d) => d.event === 'package_taken_by_stranger' || d.category?.toLowerCase().includes('theft') || d.risk === 'high');
+      if (thefts.length > 0) {
+        return `### Identified Potential Package Removal / Incident Clips\n\n` +
+          thefts.map((d) => 
+            `• **[${d.clip_id}] ${d.file_name}** (${d.category || d.event}):\n` +
+            `  - **Incident Summary**: ${d.description}\n` +
+            `  - **Risk**: ${d.risk.toUpperCase()} (${d.riskEvidence || 'Unauthorized package removal'})\n` +
+            `  - **Action at Peak**: ${(d.timeline || []).filter(t => t.action.includes('progress') || t.action.includes('Person')).map(t => `[${t.startTime}] ${t.action}`).join('; ') || 'Event captured in frame'}`
+          ).join('\n\n');
+      }
+      return `The retrieved records do not contain evidence of unauthorized package removal or theft for this search.`;
+    }
+
+    // 4. Deliveries / Courier inquiry
+    if (/deliver|courier|carrier|drop off|parcel/i.test(q)) {
+      const deliveries = docs.filter((d) => d.event?.includes('delivered') || d.event?.includes('package') || d.category?.toLowerCase().includes('deliver'));
+      return `### Package Delivery Records\n\n` +
+        `Found ${deliveries.length} delivery-related event(s) in retrieved evidence:\n\n` +
+        deliveries.map((d) => 
+          `• **[${d.clip_id}] ${d.file_name}** (${d.category || d.event}):\n` +
+          `  - **Summary**: ${d.description}\n` +
+          `  - **Risk**: ${d.risk.toUpperCase()} (${d.riskEvidence || 'Standard delivery'})\n` +
+          `  - **Key Moments**: ${(d.timeline || []).slice(0, 3).map(t => `[${t.startTime}] ${t.action}`).join(' → ')}`
+        ).join('\n\n');
+    }
+
+    // 5. Visitor / Door interactions
+    if (/visitor|guest|arrival|porch|doorbell|action/i.test(q)) {
+      return `### Visitor & Entryway Actions\n\n` +
+        docs.map((d) => 
+          `• **[${d.clip_id}] ${d.file_name}** (${d.category || d.event}):\n` +
+          `  - **Visitor Actions**: ${d.description}\n` +
+          `  - **Entities Observed**: ${(d.entities || []).join(', ') || 'person'}\n` +
+          `  - **Timeline**: ${(d.timeline || []).slice(0, 3).map(t => `[${t.startTime}] ${t.action}`).join('; ')}`
+        ).join('\n\n');
+    }
+
+    // 6. Summary / Overview inquiry
+    if (/summar|important|overview|today|all events|highlights/i.test(q)) {
+      const highRisk = docs.filter(d => d.risk === 'high');
+      const normal = docs.filter(d => d.risk !== 'high');
+      let out = `### Surveillance Intelligence Summary\n\n`;
+      if (highRisk.length > 0) {
+        out += `**⚠️ Prioritized High-Risk Incidents (${highRisk.length}):**\n` +
+          highRisk.map(d => `• **[${d.clip_id}] ${d.file_name}**: ${d.description} (Evidence: ${d.riskEvidence})`).join('\n') + `\n\n`;
+      }
+      out += `**Standard Activity & Low-Risk Events (${normal.length}):**\n` +
+        normal.map(d => `• **[${d.clip_id}] ${d.file_name}** (${d.category || d.event}): ${d.description}`).join('\n');
+      return out;
+    }
+
+    // Default question-focused synthesis based on retrieved documents
+    return `### Analysis for: "${query}"\n\n` +
+      `Based on verified surveillance records:\n\n` +
+      docs.map((d) => 
+        `• **[${d.clip_id}] ${d.file_name}** (${d.category || d.event}):\n` +
+        `  - **Details**: ${d.description}\n` +
+        `  - **Risk Assessment**: ${d.risk.toUpperCase()} (${d.riskEvidence || 'Standard baseline activity'})\n` +
+        `  - **Timeline Progression**: ${(d.timeline || []).slice(0, 3).map(t => `[${t.startTime}] ${t.action}`).join('; ')}`
+      ).join('\n\n');
   }
 };
+
+function formatSecondsToTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 function roundNumber(num, dec = 2) {
   return Math.round(num * Math.pow(10, dec)) / Math.pow(10, dec);

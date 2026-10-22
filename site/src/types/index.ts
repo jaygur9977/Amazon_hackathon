@@ -154,14 +154,35 @@ export interface DailySummaryEvent {
   timeline: TimelineSegment[];
 }
 
+export interface CategoryBreakdownItem {
+  category: string;
+  count: number;
+  high_risk_count: number;
+  clips: {
+    clip_id: string;
+    file_name: string;
+    risk: string;
+  }[];
+}
+
 export interface DailySummaryItem {
   date: string;
   total_events: number;
+  unique_clips_count?: number;
+  unique_clips?: string[];
+  risk_distribution?: {
+    high: number;
+    medium?: number;
+    low: number;
+  };
   high_risk_count: number;
   delivery_count: number;
   visitor_count: number;
   unusual_count: number;
   plain_english_summary: string;
+  category_breakdown?: CategoryBreakdownItem[];
+  high_risk_events?: DailySummaryEvent[];
+  chronological_timeline?: DailySummaryEvent[];
   events: DailySummaryEvent[];
 }
 
