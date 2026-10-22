@@ -15,7 +15,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     allowedHosts: [
-      'track-lou-newbie-mustang.trycloudflare.com'
+      'amazon-hackathon-sepia.vercel.app'
     ],
     proxy: {
       '/api': {
