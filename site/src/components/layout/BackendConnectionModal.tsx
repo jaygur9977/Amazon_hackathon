@@ -12,7 +12,7 @@ import {
   Terminal,
   Save
 } from 'lucide-react';
-import { api, getApiBase, getStoredBackendUrl, setStoredBackendUrl } from '../../services/api';
+import { api, getApiBase, getStoredBackendUrl, setStoredBackendUrl, DEFAULT_RENDER_URL } from '../../services/api';
 
 interface BackendConnectionModalProps {
   isOpen: boolean;
@@ -153,7 +153,7 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
                 type="text"
                 value={customUrl}
                 onChange={(e) => setCustomUrl(e.target.value)}
-                placeholder="e.g. https://xxxx.trycloudflare.com or https://your-app.onrender.com"
+                placeholder="e.g. https://aegisvision-backend.onrender.com or https://xxxx.trycloudflare.com"
                 className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
               <button
@@ -164,6 +164,31 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
               >
                 {isTesting ? <RotateCw size={13} className="animate-spin" /> : <Wifi size={13} />}
                 <span>Test</span>
+              </button>
+            </div>
+
+            {/* Quick 1-Click Preset Buttons */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] font-bold text-slate-400 mr-1">Quick Select:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomUrl(DEFAULT_RENDER_URL);
+                  handleTest(DEFAULT_RENDER_URL);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition"
+              >
+                ☁️ Render Cloud Backend
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomUrl('http://localhost:5000');
+                  handleTest('http://localhost:5000');
+                }}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold border border-slate-200 transition"
+              >
+                💻 Localhost (5000)
               </button>
             </div>
           </div>

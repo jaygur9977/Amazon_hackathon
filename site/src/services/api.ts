@@ -10,6 +10,8 @@ import {
   CloudConnector 
 } from '../types';
 
+export const DEFAULT_RENDER_URL = 'https://aegisvision-backend.onrender.com';
+
 export const getStoredBackendUrl = (): string => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('aegis_backend_url') || '';
@@ -38,7 +40,12 @@ export const getApiBase = (): string => {
     const clean = envUrl.replace(/\/+$/, '');
     return clean.endsWith('/api') ? clean : `${clean}/api`;
   }
-  return '/api';
+  // When running locally in dev (localhost or 127.0.0.1), use relative /api
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return '/api';
+  }
+  // When running on Vercel or production, default to deployed Render backend
+  return `${DEFAULT_RENDER_URL}/api`;
 };
 
 export const getBackendOrigin = (): string => {
