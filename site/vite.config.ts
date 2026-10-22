@@ -19,11 +19,11 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'https://aegisvision-backend.onrender.com/',
         changeOrigin: true
       },
       '/media': {
-        target: 'http://localhost:5000',
+        target: 'https://aegisvision-backend.onrender.com/',
         changeOrigin: true
       }
     }
