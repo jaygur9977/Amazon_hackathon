@@ -142,7 +142,7 @@ File: site/src/services/api.ts
 Line 13 — CHANGE:
   const API_BASE = '/api';
 TO:
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+  const API_BASE = import.meta.env.API_BASE_URL || '/api';
 
 This lets Vercel point the frontend at your Render backend URL.
 
@@ -164,7 +164,7 @@ CHANGE 3: Create .env.production in site/ folder
 --------------------------------------------------
 Create NEW file: site/.env.production
 Content:
-  VITE_API_BASE_URL=https://YOUR-APP-NAME.onrender.com/api
+  API_BASE_URL=https://YOUR-APP-NAME.onrender.com/api
 
 (Replace YOUR-APP-NAME with the actual Render app name you create in Section 7)
 
@@ -248,7 +248,7 @@ STEP 6.6 — Add Environment Variable on Vercel
 -----------------------------------------------
 After you have your Render backend URL (Section 7), run:
 
-  vercel env add VITE_API_BASE_URL production
+  vercel env add API_BASE_URL production
 
 When prompted, paste:
   https://your-app-name.onrender.com/api
@@ -338,13 +338,13 @@ STEP 8.1 — Set environment variable on Vercel
 -----------------------------------------------
 Method A (CLI):
   cd c:\Users\hp\Desktop\Amazon-Hackathon\Amazon-Hackathon\site
-  vercel env add VITE_API_BASE_URL production
+  vercel env add API_BASE_URL production
   [paste] https://aegisvision-backend.onrender.com/api
 
 Method B (Dashboard):
   1. Go to vercel.com → Your Project → Settings → Environment Variables
   2. Add new variable:
-     Name  : VITE_API_BASE_URL
+     Name  : API_BASE_URL
      Value : https://aegisvision-backend.onrender.com/api
      Environment: Production (tick), Preview (tick)
   3. Click Save
@@ -397,7 +397,7 @@ vercel
 vercel --prod
 
 # Add backend URL as env variable
-vercel env add VITE_API_BASE_URL production
+vercel env add API_BASE_URL production
 # [type] https://aegisvision-backend.onrender.com/api  then press Enter
 
 # Redeploy after adding env variable
@@ -458,8 +458,8 @@ PROJECT SETTINGS:
 ENVIRONMENT VARIABLES:
   Name                  Value                                    Env
   ----                  -----                                    ---
-  VITE_API_BASE_URL     https://aegisvision-backend.onrender.com/api   Production
-  VITE_API_BASE_URL     http://localhost:5000/api                       Development
+  API_BASE_URL     https://aegisvision-backend.onrender.com/api   Production
+  API_BASE_URL     http://localhost:5000/api                       Development
 
 DOMAINS:
   By default: aegisvision-ai.vercel.app
@@ -511,7 +511,7 @@ SECTION 12: TROUBLESHOOTING
 PROBLEM: "Generating daily event digests..." spinner stuck
 FIX: Backend not reachable. Check:
   1. Render app is running (check render.com dashboard)
-  2. VITE_API_BASE_URL is set correctly in Vercel env variables
+  2. API_BASE_URL is set correctly in Vercel env variables
   3. CORS_ORIGINS on Render includes your Vercel domain
 
 PROBLEM: AI Assistant says "Error connecting to AI service"

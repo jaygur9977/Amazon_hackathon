@@ -10,7 +10,7 @@ import {
   CloudConnector
 } from '../types';
 
-const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL as string) || '/api';
+const API_BASE = ((import.meta as any).env?.API_BASE_URL as string) || '/api';
 
 export const api = {
   async getVideos(): Promise<{ count: number; videos: VideoClip[] }> {

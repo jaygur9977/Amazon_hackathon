@@ -288,7 +288,7 @@ vercel --prod
 ```
 In your Vercel Dashboard (**Settings → Environment Variables**), add:
 ```env
-VITE_API_BASE_URL=https://your-backend-app.onrender.com/api
+API_BASE_URL=https://your-backend-app.onrender.com/api
 ```
 
 #### 2. Deploy Backend on Render
