@@ -1,16 +1,23 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { VideoClip } from '../types';
-import { api } from '../services/api';
+import { api, setStoredBackendUrl } from '../services/api';
 import { VideoCard } from '../components/videos/VideoCard';
 import { VideoFilterBar } from '../components/videos/VideoFilterBar';
 import { AnalyzeModal } from '../components/videos/AnalyzeModal';
 import { VideoInputModal } from '../components/videos/VideoInputModal';
-import { Film, AlertCircle, RefreshCw, Upload, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Film, AlertCircle, RefreshCw, Upload, CheckCircle2, ShieldAlert, Server, ArrowRight } from 'lucide-react';
 
 export const VideoLibraryPage: React.FC = () => {
   const [videos, setVideos] = useState<VideoClip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [quickBackendUrl, setQuickBackendUrl] = useState('');
+
+  const handleSaveQuickBackend = () => {
+    if (!quickBackendUrl.trim()) return;
+    setStoredBackendUrl(quickBackendUrl.trim());
+    window.location.reload();
+  };
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -277,17 +284,44 @@ export const VideoLibraryPage: React.FC = () => {
           ))}
         </div>
       ) : error ? (
-        <div className="p-8 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-3">
-          <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
-          <h3 className="font-bold text-sm text-rose-950">Unable to load video clips</h3>
-          <p className="text-xs text-rose-800">{error}</p>
-          <button
-            type="button"
-            onClick={fetchVideos}
-            className="px-4 py-2 rounded-xl bg-rose-900 text-white text-xs font-semibold"
-          >
-            Try Again
-          </button>
+        <div className="p-8 rounded-3xl bg-rose-50 border-2 border-rose-200 text-center space-y-4 max-w-xl mx-auto shadow-sm">
+          <AlertCircle className="w-10 h-10 text-rose-600 mx-auto" />
+          <div>
+            <h3 className="font-extrabold text-base text-rose-950">Backend Connection Required</h3>
+            <p className="text-xs text-rose-800 mt-1 max-w-md mx-auto leading-relaxed">
+              The Vercel frontend cannot communicate with your local backend. Run <code className="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded font-mono font-bold">cloudflared tunnel --url http://localhost:5000</code> on your computer and paste the URL below:
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 max-w-md mx-auto">
+            <input
+              type="text"
+              value={quickBackendUrl}
+              onChange={(e) => setQuickBackendUrl(e.target.value)}
+              placeholder="Paste URL: https://xxxx.trycloudflare.com"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-rose-300 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-inner"
+            />
+            <button
+              type="button"
+              onClick={handleSaveQuickBackend}
+              disabled={!quickBackendUrl.trim()}
+              className="px-4 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-50 shrink-0"
+            >
+              <span>Connect</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
+          <div className="pt-2 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={fetchVideos}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <RefreshCw size={12} />
+              <span>Retry Current</span>
+            </button>
+          </div>
         </div>
       ) : filteredVideos.length === 0 ? (
         <div className="p-12 rounded-2xl bg-white border border-slate-200 text-center space-y-3 shadow-sm">
