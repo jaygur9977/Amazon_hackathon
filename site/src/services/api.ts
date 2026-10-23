@@ -10,31 +10,10 @@ import {
   CloudConnector 
 } from '../types';
 
-export const DEFAULT_RENDER_URL = 'https://aegisvision-backend.onrender.com';
-
-export const getStoredBackendUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('aegis_backend_url') || '';
-  }
-  return '';
-};
-
-export const setStoredBackendUrl = (url: string): void => {
-  if (typeof window !== 'undefined') {
-    if (!url || !url.trim()) {
-      localStorage.removeItem('aegis_backend_url');
-    } else {
-      localStorage.setItem('aegis_backend_url', url.trim());
-    }
-  }
-};
+export const BACKEND_URL = 'https://backend-5urh.onrender.com';
+export const DEFAULT_RENDER_URL = BACKEND_URL;
 
 export const getApiBase = (): string => {
-  const custom = getStoredBackendUrl();
-  if (custom) {
-    const clean = custom.replace(/\/+$/, '');
-    return clean.endsWith('/api') ? clean : `${clean}/api`;
-  }
   const envUrl = ((import.meta as any).env?.VITE_API_BASE_URL as string);
   if (envUrl) {
     const clean = envUrl.replace(/\/+$/, '');
@@ -45,7 +24,7 @@ export const getApiBase = (): string => {
     return '/api';
   }
   // When running on Vercel or production, default to deployed Render backend
-  return `${DEFAULT_RENDER_URL}/api`;
+  return `${BACKEND_URL}/api`;
 };
 
 export const getBackendOrigin = (): string => {
@@ -53,7 +32,7 @@ export const getBackendOrigin = (): string => {
   if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
     return apiBase.replace(/\/api\/?$/, '');
   }
-  return '';
+  return BACKEND_URL;
 };
 
 export const resolveMediaUrl = (url?: string | null): string => {
@@ -74,8 +53,6 @@ const mapVideoMediaUrls = (v: VideoClip): VideoClip => ({
 });
 
 export const api = {
-  getStoredBackendUrl,
-  setStoredBackendUrl,
   getApiBase,
   getBackendOrigin,
   resolveMediaUrl,

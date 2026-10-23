@@ -18,7 +18,7 @@ import {
   Radio 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { api, setStoredBackendUrl } from '../services/api';
+import { api } from '../services/api';
 import { VideoClip, DetectionData } from '../types';
 import { DetectionOverlay } from '../components/videos/DetectionOverlay';
 
@@ -27,7 +27,6 @@ export const DoorbellFeedPage: React.FC = () => {
   const [selectedVideo, setSelectedVideo] = useState<VideoClip | null>(null);
   const [detectionData, setDetectionData] = useState<DetectionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [quickTunnelUrl, setQuickTunnelUrl] = useState('');
 
   // Playback state
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -243,34 +242,6 @@ export const DoorbellFeedPage: React.FC = () => {
                   </div>
                 )}
               </>
-            ) : videos.length === 0 ? (
-              <div className="p-8 text-center text-slate-300 space-y-3 max-w-md mx-auto">
-                <AlertTriangle size={36} className="mx-auto text-amber-400 animate-pulse" />
-                <p className="text-sm font-bold text-white">Backend Connection Required for Camera Stream</p>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  The camera feed requires your local backend. Run <code className="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">cloudflared tunnel --url http://localhost:5000</code> and paste the URL:
-                </p>
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={quickTunnelUrl}
-                    onChange={(e) => setQuickTunnelUrl(e.target.value)}
-                    placeholder="https://xxxx.trycloudflare.com"
-                    className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
-                  />
-                  <button
-                    onClick={() => {
-                      if (!quickTunnelUrl.trim()) return;
-                      setStoredBackendUrl(quickTunnelUrl.trim());
-                      window.location.reload();
-                    }}
-                    disabled={!quickTunnelUrl.trim()}
-                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition disabled:opacity-50"
-                  >
-                    Connect
-                  </button>
-                </div>
-              </div>
             ) : (
               <div className="p-8 text-center text-slate-400">
                 <AlertTriangle size={32} className="mx-auto mb-2 text-amber-500" />

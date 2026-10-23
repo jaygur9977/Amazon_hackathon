@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://aegisvision-backend.onrender.com/api/:path*"
+      "destination": "https://backend-5urh.onrender.com/api/:path*"
     },
     {
       "source": "/media/:path*",
-      "destination": "https://aegisvision-backend.onrender.com/media/:path*"
+      "destination": "https://backend-5urh.onrender.com/media/:path*"
     },
     {
       "source": "/(.*)",

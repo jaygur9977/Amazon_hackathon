@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { Sparkles, Cpu, Search, X, Loader2, Play, Server, Wifi, WifiOff } from 'lucide-react';
+import { Sparkles, Cpu, Search, X, Loader2, Play } from 'lucide-react';
 import { api } from '../../services/api';
-import { BackendConnectionModal } from './BackendConnectionModal';
 
 interface TopBarProps {
   title?: string;
@@ -19,22 +18,6 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-
-  // Backend connection state & modal
-  const [isBackendModalOpen, setIsBackendModalOpen] = useState(false);
-  const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    checkConnection();
-    const interval = setInterval(checkConnection, 20000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const checkConnection = () => {
-    api.checkHealth()
-      .then(() => setIsBackendOnline(true))
-      .catch(() => setIsBackendOnline(false));
-  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -193,37 +176,6 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
           <span className="font-mono text-[11px] font-bold text-blue-900">Neural Engine</span>
         </div>
 
-        {/* Backend Status Pill */}
-        <button
-          type="button"
-          onClick={() => setIsBackendModalOpen(true)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition shadow-subtle shrink-0 ${
-            isBackendOnline === true
-              ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
-              : isBackendOnline === false
-              ? 'bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100 animate-pulse'
-              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Click to configure backend API connection URL"
-        >
-          {isBackendOnline === true ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Backend Online</span>
-            </>
-          ) : isBackendOnline === false ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-rose-500" />
-              <span>Connect Backend</span>
-            </>
-          ) : (
-            <>
-              <Server size={12} className="text-slate-400" />
-              <span>Checking API...</span>
-            </>
-          )}
-        </button>
-
         {/* Quick Action Button */}
         <Link
           to="/feed"
@@ -233,12 +185,6 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
           <span>Camera Feed</span>
         </Link>
       </div>
-
-      <BackendConnectionModal
-        isOpen={isBackendModalOpen}
-        onClose={() => setIsBackendModalOpen(false)}
-        onStatusChange={(online) => setIsBackendOnline(online)}
-      />
     </header>
   );
 };
