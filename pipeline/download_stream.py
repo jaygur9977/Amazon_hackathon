@@ -147,11 +147,11 @@ def download_ytdlp_video(url, out_dir, max_duration=600):
     and single pre-muxed format fallback to eliminate format merging errors.
     """
     if not HAVE_YTDLP:
-        raise RuntimeError("yt-dlp is not installed in the Python runtime.")
+        raise RuntimeError("yt-dlp is not installed in the server Python runtime. Please install dependencies with: pip install -r requirements.txt")
 
     os.makedirs(out_dir, exist_ok=True)
 
-    # Base options - strictly silent on stdout
+    # Base options - strictly silent on stdout with cloud IP anti-bot arguments
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -159,6 +159,12 @@ def download_ytdlp_video(url, out_dir, max_duration=600):
         'noplaylist': True,
         'logger': YtDlpSilentLogger(),
         'outtmpl': os.path.join(out_dir, '%(id)s.%(ext)s'),
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'web']
+            }
+        },
+        'socket_timeout': 30,
     }
 
     # If static ffmpeg is present, supply it to yt-dlp
